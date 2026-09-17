@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import {createHouseModel} from '../scripts/house-model.mjs';
 import {NavGraph,roomAt} from '../src/nav.js';
 import {Game} from '../src/game.js';
-import {Agents,walkSpeed} from '../src/agents.js';
-import {ZONES} from '../src/zones.js';
+import {Agents,walkSpeed,ERRAND_PATIENCE} from '../src/agents.js';
+import {ZONES,PET_NEEDS} from '../src/zones.js';
+import {HOUSE_VIEWS} from '../src/house/house-layout.js';
 import {inWalkableArea} from '../src/house/navigation.js';
 
 const world=createHouseModel({optimize:false});
@@ -82,4 +83,26 @@ test('workers take distinct desk spots, pets reach their bowls and the balcony, 
  const eaten=game.chars.filter(c=>c.deathType==='eaten');
  assert.equal(eaten.length,1,'exactly one family member was eaten');
  assert.equal(game.zombie,null,'the zombie left through the front door');
+});
+
+test('a pet errand survives a refused first route, and a stall that never clears is called off with a refund',()=>{
+ // At Home's router refuses a command while another pet blocks the way, then retries on its own.
+ const pets=new Map(),[hx,,hz]=HOUSE_VIEWS.hall;
+ const fake={pets,player:null,
+  register(id){const p={id,x:hx,z:hz,y:.45,path:[],arrived:false,command:null,moving:false,activity:'idle'};pets.set(id,p);return p;},
+  command(id,target,speed){const p=pets.get(id);p.command={x:target.x,z:target.z,speed};p.arrived=false;p.path=[];return false;},
+  release(id){const p=pets.get(id);p.command=null;p.path=[];p.arrived=false;},interact(){}};
+ const game=new Game({random,hooks:{}}),agents=new Agents(nav,game,{random,petRoaming:fake});
+ Object.assign(game.hooks,{place:c=>agents.place(c),go:(c,zone,purpose)=>agents.go(c,zone,purpose),stop:c=>agents.stop(c)});
+ game.start({familySize:2,petCount:2});for(const c of game.chars)c.nextReq=1e9;
+ const [leo,cyrus]=game.chars.filter(c=>c.isPet);
+ game.startRequest(leo,PET_NEEDS[0]);assert.ok(game.act(leo,'serve').ok,'the errand is accepted although the first route was refused');
+ assert.equal(leo.state,'going');const paid=game.money;
+ simulate(game,agents,5);assert.equal(leo.state,'going','still waiting for the router');
+ const p=pets.get(leo.id);p.path=[{x:p.x+.2,z:p.z}];simulate(game,agents,2);
+ p.path=[];p.arrived=true;simulate(game,agents,.1);
+ assert.equal(leo.state,'happy','served once roaming reports arrival');assert.equal(game.money,paid);
+ game.startRequest(cyrus,PET_NEEDS[1]);assert.ok(game.act(cyrus,'serve').ok);const before=game.money;
+ simulate(game,agents,ERRAND_PATIENCE+1);
+ assert.equal(cyrus.state,'request','a stall that never clears gives up');assert.ok(game.money>before,'the fee came back');assert.equal(pets.get(cyrus.id).command,null,'roaming was released');
 });

@@ -3,6 +3,11 @@ import {ZONES} from './zones.js';
 import {PETS} from './house/life.js';
 import {stationPose,stationApproaches} from './stations.js';
 
+// Seconds a pet may sit without a route before its errand is called off and
+// refunded. At Home's router waits for another pet to move out of a doorway,
+// and a sleeping pet can take a while; the need's clock is paused meanwhile.
+export const ERRAND_PATIENCE=30;
+
 // Moves family members, pets and the zombie along the navigation graph. The
 // rules engine decides *what* happens; this layer decides where feet go.
 const HOME_ROOMS=['living','living_landing','living_south','dining','passage','kitchen','hall'];
@@ -70,8 +75,9 @@ export class Agents{
    // told to go somewhere while you stand over them should still set off.
    let ok=this.petRoaming.command(c.id,n,hurry);
    if(!ok){const player=this.petRoaming.player;this.petRoaming.player=null;ok=this.petRoaming.command(c.id,n,hurry);this.petRoaming.player=player;}
-   if(!ok)return false;
-   this.reserved.set(n.key,c);c.spot=n;c.faceZone=zone;c.errand=true;return true;
+   // The router also refuses while another pet is curled up against this one;
+   // the command stays set and roaming retries it, so give it a few seconds.
+   this.reserved.set(n.key,c);c.spot=n;c.faceZone=zone;c.errand=true;c.errandWait=0;return true;
   }
   const path=this.nav.route(c,n);if(!path)return false;
   this.reserved.set(n.key,c);c.spot=n;c.path=path;c.hurry=purpose!=='resume'?1.45:1.2;c.moving=true;c.blocked=0;c.faceZone=zone;return true;
@@ -79,11 +85,13 @@ export class Agents{
  stop(c){if(this.roamed(c)){this.petRoaming.release(c.id,3);this.petRoaming.interact(c.id);c.errand=false;return;}c.path=[];c.moving=false;c.idle=.5+this.random();}
  remove(c){this.release(c);if(c.station){this.occupied.delete(c.station.id);c.station=null;}if(this.roamed(c)){this.petRoaming.release(c.id,1e9);this.petRoaming.pets.delete(c.id);return;}c.path=[];c.moving=false;}
  // Copy At Home's roaming state onto the game character each frame.
- syncPet(c){
+ syncPet(c,dt=0){
   const p=this.roamed(c);if(!p)return;
   c.x=p.x;c.z=p.z;c.y=p.y;c.vx=p.vx||0;c.vz=p.vz||0;c.moving=!!p.moving;c.activity=p.activity;c.distance=p.distance;if(p.heading!==undefined)c.heading=p.heading;
-  if(c.state==='going'&&c.errand&&p.command&&p.arrived){c.errand=false;this.petRoaming.release(c.id,c.destination?.purpose==='need'?6:2);this.face(c,c.faceZone);this.game.arrived(c);this.release(c);}
-  else if(c.state==='going'&&c.errand&&!p.command){c.errand=false;this.game.travelFailed(c);this.release(c);}
+  if(c.state!=='going'||!c.errand)return;
+  if(p.command&&p.arrived){c.errand=false;this.petRoaming.release(c.id,c.destination?.purpose==='need'?6:2);this.face(c,c.faceZone);this.game.arrived(c);this.release(c);return;}
+  const stalled=p.command&&!p.path.length;c.errandWait=stalled?(c.errandWait||0)+dt:0;
+  if(!p.command||c.errandWait>ERRAND_PATIENCE){if(p.command)this.petRoaming.release(c.id,2);c.errand=false;this.game.travelFailed(c);this.release(c);}
  }
  // Everyone else on this floor level, plus the player, counts as someone to
  // walk around. The player is never a hard wall: after a while people squeeze past.
@@ -131,7 +139,7 @@ export class Agents{
  update(dt){
   if(dt<=0)return;
   for(const c of this.game.chars){
-   if(this.roamed(c)){if(!c.dead)this.syncPet(c);continue;}
+   if(this.roamed(c)){if(!c.dead)this.syncPet(c,dt);continue;}
    c.vx=0;c.vz=0;
    if(c.dead||c.state==='doomed'||c.state==='work'){c.moving=false;if(c.state==='work'&&c.faceZone&&!c.station){this.face(c,c.faceZone);}continue;}
    if(c.squeeze){const d=dist(c,c.squeeze);if(d<.03){c.x=c.squeeze.x;c.z=c.squeeze.z;c.squeeze=null;c.moving=false;}else{const move=Math.min(d,.6*dt);c.vx=(c.squeeze.x-c.x)/d*.6;c.vz=(c.squeeze.z-c.z)/d*.6;c.x+=(c.squeeze.x-c.x)/d*move;c.z+=(c.squeeze.z-c.z)/d*move;c.y=floorHeight(c.x,c.z);c.moving=true;c.heading=Math.atan2(c.vx,c.vz);continue;}}
