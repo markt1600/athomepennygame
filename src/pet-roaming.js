@@ -43,10 +43,13 @@ export class PetRoaming{
  }
  route(p){
   const others=[...this.pets.values()].filter(o=>o!==p);
-  const clear=n=>!this.dynamicObstacles.some(c=>intersectsFootprint(n.x,n.z,c))&&others.every(o=>Math.abs(n.y-o.y)>.4||Math.hypot(n.x-o.x,n.z-o.z)>=Math.min(.53,Math.hypot(p.x-o.x,p.z-o.z)-.005))&&(!this.player||Math.abs(n.y-(this.player.y-1.67))>.5||Math.hypot(n.x-this.player.x,n.z-this.player.z)>=Math.min(p.command?.50:.78,Math.hypot(p.x-this.player.x,p.z-this.player.z)-.005));
+  // A pet on an errand squeezes past a sleeping housemate in a narrow gap; the
+  // wanderers keep At Home's wider berth.
+  const berth=p.command?.3:.53,edgeBerth=p.command?.26:.46;
+  const clear=n=>!this.dynamicObstacles.some(c=>intersectsFootprint(n.x,n.z,c))&&others.every(o=>Math.abs(n.y-o.y)>.4||Math.hypot(n.x-o.x,n.z-o.z)>=Math.min(berth,Math.hypot(p.x-o.x,p.z-o.z)-.005))&&(!this.player||Math.abs(n.y-(this.player.y-1.67))>.5||Math.hypot(n.x-this.player.x,n.z-this.player.z)>=Math.min(p.command?.50:.78,Math.hypot(p.x-this.player.x,p.z-this.player.z)-.005));
   // Clear endpoints alone can route an edge through a nearby player. Check the
   // full segment so a pet can depart after care without oscillating in place.
-  const edgeClear=(a,b)=>others.every(o=>Math.abs(a.y-o.y)>.4||segmentDistance(a,b,o)>=Math.min(.46,Math.hypot(p.x-o.x,p.z-o.z)-.005))&&(!this.player||Math.abs(a.y-(this.player.y-1.67))>.5||segmentDistance(a,b,this.player)>=Math.min(p.command?.46:.72,Math.hypot(p.x-this.player.x,p.z-this.player.z)-.005));
+  const edgeClear=(a,b)=>others.every(o=>Math.abs(a.y-o.y)>.4||segmentDistance(a,b,o)>=Math.min(edgeBerth,Math.hypot(p.x-o.x,p.z-o.z)-.005))&&(!this.player||Math.abs(a.y-(this.player.y-1.67))>.5||segmentDistance(a,b,this.player)>=Math.min(p.command?.46:.72,Math.hypot(p.x-this.player.x,p.z-this.player.z)-.005));
   const start=[...this.nodes.values()].filter(n=>Math.hypot(n.x-p.x,n.z-p.z)<.45&&clear(n)&&edgeClear(p,n)).sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z)).find(n=>{const m=moveAlongFloor(p.x,p.z,n.x-p.x,n.z-p.z,this.obstacles);return Math.hypot(m.x-n.x,m.z-n.z)<.001;});if(!start){p.wait=.5;return false;}const parents=new Map([[start.key,null]]),queue=[start];
   for(let i=0;i<queue.length;i++)for(const key of queue[i].links)if(!parents.has(key)&&clear(this.nodes.get(key))&&edgeClear(queue[i],this.nodes.get(key))){parents.set(key,queue[i].key);queue.push(this.nodes.get(key));}
   const home=this.nodes.get(p.home),max=p.id==='pebble'?3.2:12,choices=queue.filter(n=>Math.hypot(n.x-p.x,n.z-p.z)>1&&Math.hypot(n.x-p.x,n.z-p.z)<max&&this.restingSpot(n));

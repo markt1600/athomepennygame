@@ -78,6 +78,7 @@ function tick(dt,active){
  const running=game.running&&!world.paused;
  if(running){game.update(dt);agents.player=world.feetPosition;agents.update(dt);world.hours=game.hours;sound.update(dt,game.hours,world.room.includes('balcony'));}
  else if(!game.running)world.hours+=dt/40;
+ world.powderDoor.update(dt,agents.occupied.get('toilet-0')?.station?.id==='toilet-0',world.feetPosition);
  syncVisuals(running?dt:0);
  effects.update(running?dt:0);
  if(game.running||lastResult){hudTimer+=dt;rosterTimer+=dt;if(hudTimer>.1){hudTimer=0;updateHUD();}if(rosterTimer>.25){rosterTimer=0;updateRoster();}updateMarkers();}
