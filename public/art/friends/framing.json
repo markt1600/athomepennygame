@@ -1,0 +1,22 @@
+{
+  "miso": {
+    "asset": "miso-orange",
+    "width": 768,
+    "height": 512,
+    "bodyHeight": 445,
+    "bottom": 46
+  },
+  "sunny": {
+    "asset": "leo",
+    "width": 768,
+    "height": 512,
+    "bodyHeight": 387,
+    "bottom": 66
+  },
+  "pebble": {
+    "width": 768,
+    "height": 512,
+    "bodyHeight": 435,
+    "bottom": 32
+  }
+}
