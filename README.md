@@ -21,6 +21,8 @@ Desktop: `WASD` or arrows walk, mouse looks, `Space` jumps small furniture, `E` 
 
 Touch: At Home's controls. The left thumb stick walks, dragging anywhere else looks around, and tapping a family member, pet or fixture uses it. The Talk button acts on whatever is in front of you, and there are Pause and zombie buttons.
 
+On a phone the layout is trimmed: a compact HUD, off-screen needs stacked in a tray under it (most urgent first) instead of floating around the edges, and the family roster behind the 👨‍👩‍👧‍👦 button in the HUD so the thumb stick and buttons stay clear.
+
 ## Frame rate
 
 - The house is At Home's batched geometry; each family member is only a few draw calls (limbs, body and head are merged into vertex-coloured meshes) plus one sprite for the need bubble.

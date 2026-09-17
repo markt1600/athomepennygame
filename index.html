@@ -6,14 +6,14 @@
  <meta name="theme-color" content="#fdf6ec"/>
  <meta name="description" content="At Home: Keep Them Alive! Walk through a real 3D home, find the family members who need something, and keep everyone fed, rested, working and alive."/>
  <title>At Home — Keep Them Alive!</title>
- <!-- Link previews. The image must be an absolute URL: change SITE if the game is served from another domain. -->
+ <!-- Link previews. The image must be an absolute URL: change the domain here if the game moves. -->
  <meta property="og:type" content="website"/>
  <meta property="og:site_name" content="At Home Penny Game"/>
  <meta property="og:title" content="At Home — Keep Them Alive!"/>
  <meta property="og:description" content="Find your family in a real 3D home. Feed them, work them, tuck them in. And mind the zombie."/>
- <meta property="og:url" content="https://athomepennygame.vercel.app/"/>
- <meta property="og:image" content="https://athomepennygame.vercel.app/social/cover.jpg"/>
- <meta property="og:image:secure_url" content="https://athomepennygame.vercel.app/social/cover.jpg"/>
+ <meta property="og:url" content="https://athomepenny.marktan.ai/"/>
+ <meta property="og:image" content="https://athomepenny.marktan.ai/social/cover.jpg"/>
+ <meta property="og:image:secure_url" content="https://athomepenny.marktan.ai/social/cover.jpg"/>
  <meta property="og:image:type" content="image/jpeg"/>
  <meta property="og:image:width" content="1200"/>
  <meta property="og:image:height" content="630"/>
@@ -21,7 +21,7 @@
  <meta name="twitter:card" content="summary_large_image"/>
  <meta name="twitter:title" content="At Home — Keep Them Alive!"/>
  <meta name="twitter:description" content="Find your family in a real 3D home. Feed them, work them, tuck them in. And mind the zombie."/>
- <meta name="twitter:image" content="https://athomepennygame.vercel.app/social/cover.jpg"/>
+ <meta name="twitter:image" content="https://athomepenny.marktan.ai/social/cover.jpg"/>
  <link rel="icon" href="/favicon.svg"/>
  <link rel="preconnect" href="https://fonts.googleapis.com">
  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -48,7 +48,7 @@
    <div class="stat" id="earned">$0<small>earned at desk</small></div>
    <div class="stat" id="cost">$5 / $1<small>need cost 👤/🐾</small></div>
    <div class="stat clockstat" id="clock">07:15<small>time at home</small></div>
-   <div class="hud-buttons"><button class="cornerBtn" data-mute title="toggle sound (M)">🔊</button><button class="cornerBtn" id="pauseBtn" title="pause (P)">⏸️</button></div>
+   <div class="hud-buttons"><button class="cornerBtn" id="rosterBtn" title="the family" aria-controls="roster">👨‍👩‍👧‍👦</button><button class="cornerBtn" data-mute title="toggle sound (M)">🔊</button><button class="cornerBtn" id="pauseBtn" title="pause (P)">⏸️</button></div>
   </header>
   <aside id="roster" hidden aria-label="Family status"><h3>👨‍👩‍👧‍👦 The family</h3><ol></ol><p class="fine">Timers pause while someone walks to a chore. The house keeps working while you play.</p></aside>
   <div id="markers" aria-hidden="true"></div>
