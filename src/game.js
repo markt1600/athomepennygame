@@ -23,6 +23,7 @@ const KID_NAMES=['Lily','Sam','Rosie','Theo'],KID_GENDERS=['f','m','f','m'];
 export const SHIRTS=['#ff8fab','#5dade2','#af7ac5','#6fcf97','#f5b041','#e74c3c'];
 export const HAIRS=['#8d5524','#2c2c2c','#d4a017','#6b3fa0','#c0392b','#3d2b1f'];
 export const SKINS=['#ffe0bd','#f1c27d','#ffdbac','#e0ac69','#ffe0bd','#c68642'];
+export const PANTS=['#4a3f6b','#3f4d6b','#c94f7c','#4b6b3f','#6b3f4d','#3a5a6b'];
 export const sizeForAge=age=>.55+Math.min(age,18)/18*.45;
 export const fmt$=v=>'$'+(Number.isInteger(v)?v:v.toFixed(2));
 export const pick=(a,random=Math.random)=>a[Math.floor(random()*a.length)];
@@ -48,7 +49,7 @@ export class Game{
   else if(i===1){name='Max';age=this.randi(30,40);gender='m';}
   else if(i===2){name=KID_NAMES[0];age=0;gender=KID_GENDERS[0];}
   else{name=KID_NAMES[i-2];age=this.randi(3,12);gender=KID_GENDERS[i-2];}
-  return {id:'h'+i,name,age,gender,ageT:0,isPet:false,shirt:SHIRTS[i],hair:HAIRS[i],skin:SKINS[i],
+  return {id:'h'+i,name,age,gender,ageT:0,isPet:false,shirt:SHIRTS[i],hair:HAIRS[i],skin:SKINS[i],pants:PANTS[i],
    hairStyle:gender==='f'?(i===0?1:3):(i===1?0:2),size:sizeForAge(age),
    health:100,misses:0,dead:false,deathType:null,ghostT:-1,
    state:'wander',need:null,reqT:0,nextReq:this.rand(...this.rules.FIRST_REQUEST),happyT:0,tickleT:0,
