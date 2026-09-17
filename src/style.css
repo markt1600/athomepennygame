@@ -27,7 +27,8 @@ button:focus-visible,input:focus-visible{outline:3px solid #ff8fab99;outline-off
 #markers{position:absolute;inset:0;overflow:hidden}
 .marker{position:absolute;left:0;top:0;white-space:nowrap;background:#fffefbf2;border:2px solid #e0a800;border-radius:30px;padding:3px 11px;font-size:13px;font-weight:700;box-shadow:0 3px 10px #0003;pointer-events:none;will-change:transform}
 .marker.warm{border-color:#ff8c3c}.marker.urgent{border-color:var(--bad);background:#ffe3e3f2;animation:beat 1s ease-in-out infinite}
-.marker.edge{border-radius:14px}.marker i{display:inline-block;margin-left:6px;font-style:normal}
+.marker{display:flex;align-items:center;gap:6px}.marker b{font-size:20px;line-height:1}.marker em{font-style:normal;font-size:10px;letter-spacing:.08em;text-transform:uppercase;background:var(--ink);color:#fff;border-radius:6px;padding:1px 5px;margin-right:4px}
+.marker.edge{border-radius:14px;padding:5px 12px}.marker i{display:inline-block;font-style:normal;font-size:16px;color:#c62828}
 #look-hint{position:absolute;left:50%;top:60%;transform:translateX(-50%);background:#fffefbf0;border:2px solid var(--ink);border-radius:30px;padding:8px 18px;font-size:14px;font-weight:700}
 #look-hint:empty{display:none}.panel-open #look-hint,.panel-open .touch-walk,.panel-open .touch-actions{visibility:hidden}
 #log{position:absolute;left:50%;bottom:44px;transform:translateX(-50%);max-width:min(760px,calc(100% - 24px));text-align:center;font-size:15px;font-weight:700;background:#fffefbe8;border-radius:14px;padding:8px 16px;box-shadow:0 4px 14px #0002;opacity:0;transition:opacity .3s}

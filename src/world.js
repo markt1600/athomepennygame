@@ -30,6 +30,7 @@ import {mat,box,cyl,sphere} from './primitives.js';
 import {NavGraph} from './nav.js';
 import {PetRoaming} from './pet-roaming.js';
 import {PetSocial} from './house/pet-social.js';
+import {buildStations} from './stations.js';
 
 // The At Home house with its light, balcony life, fixtures, hands, pets and
 // mini-games, plus a first-person player. Family members are registered as
@@ -46,7 +47,7 @@ export class World{
   this.handInteraction=new HandInteractionBody(this);
   buildHouse(this);this.targets=[];optimizeHouse(this);this.cinema.installRoomDimming();this.cinema.memoryMode=false;this.flashlight.visible=false;
   this.daylight=new Daylight(this);this.reflections=new HouseReflections(this);this.door.rotation.y=-1.45;
-  this.nav=new NavGraph(this.colliders);
+  buildStations(this);this.nav=new NavGraph(this.colliders);
   this.petRoaming=new PetRoaming(this.colliders,Math.random,this.nav);this.petBone=installPetBone(this);
   this.petSocial=new PetSocial(this.petRoaming,{canStart:()=>this.petBone.phase==='rest',ready:id=>this.actors.get(id)?.userData.playReady});
   this.buildPetCorners();this.balconyLife=new BalconyLife(this);

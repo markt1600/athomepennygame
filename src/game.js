@@ -96,7 +96,8 @@ export class Game{
   const verb=c.need.verb;
   if(isBreak){c.wasWorking=false;c.workTimer=0;c.workSession=0;this.log(`${c.name} is taking a well-earned break! ☕`,'#2e7d32');}
   else this.log(`${c.name} was ${verb}! ${c.need.emoji}`+(c.wasWorking?' They will head back to the desk.':''),'#2e7d32');
-  c.need=null;c.paid=0;c.state='happy';c.happyT=this.rules.HAPPY_TIME;
+  const zone=this.zoneFor(c);c.busy=isBreak?'resting':zone?.busy||null;
+  c.need=null;c.paid=0;c.state='happy';c.happyT=zone?.stay||this.rules.HAPPY_TIME;
   this.scheduleNext(c);
  }
  missRequest(c){
@@ -228,7 +229,7 @@ export class Game{
    if(!c.isPet){c.ageT+=dt;if(c.ageT>=r.YEAR_EVERY){c.ageT-=r.YEAR_EVERY;c.age++;c.size=sizeForAge(c.age);if(c.age>r.MAX_AGE){this.peacefulDeath(c);continue;}if(c.age===r.MAX_AGE)this.log(`🎂 ${c.name} turned 100! What a life!`,'#7b1fa2');}}
    if(c.state==='doomed'||c.state==='going')continue;
    if(c.state==='tickle'){c.tickleT-=dt;if(c.tickleT<=0)c.state='wander';continue;}
-   if(c.state==='happy'){c.happyT-=dt;if(c.happyT<=0){if(c.wasWorking&&this.canWork(c)){if(!this.send(c,ZONES.desk,'resume')){c.wasWorking=false;c.state='wander';}}else{c.wasWorking=false;c.state='wander';}}continue;}
+   if(c.state==='happy'){c.happyT-=dt;if(c.happyT<=0){c.busy=null;if(c.wasWorking&&this.canWork(c)){if(!this.send(c,ZONES.desk,'resume')){c.wasWorking=false;c.state='wander';}}else{c.wasWorking=false;c.state='wander';}}continue;}
    if(c.state==='request'){c.reqT-=dt;if(c.reqT<=0)this.missRequest(c);continue;}
    if(c.state==='work'){
     c.workTimer+=dt;c.workSession+=dt;

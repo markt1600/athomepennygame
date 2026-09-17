@@ -5,6 +5,7 @@ import {Game,RULES,fmt$} from './game.js';
 import {Agents} from './agents.js';
 import {ZONES,zoneForNeed} from './zones.js';
 import {roomAt} from './nav.js';
+import {stationPose} from './stations.js';
 import {createDoll,createBubble,Effects} from './family.js';
 import {installTouchStick} from './house/touch-controls.js';
 import {hasTouchInput,installGameViewport,viewportBounds} from './house/game-viewport.js';
@@ -47,7 +48,7 @@ game=new Game({hooks:{
  zombie:(kind,z)=>{agents.zombieEvent(kind,z);if(kind==='enter'){zombieDoll=createDoll({name:'Zombie'},{zombie:true});zombieDoll.scale.setScalar(1.05);world.scene.add(zombieDoll);}if(kind==='gone'&&zombieDoll){world.scene.remove(zombieDoll);zombieDoll=null;}if(kind==='hunt'&&commandFor===z.victim?.id)closeCommand();},
  broke:()=>flash($('#money'),'flash-red'),
 }});
-agents=new Agents(world.nav,game,{petRoaming:world.petRoaming});
+agents=new Agents(world.nav,game,{petRoaming:world.petRoaming,stations:world.stations});
 world.onInteract=interact;
 world.onUnlock=()=>{if(game.running&&!commandFor&&!miniGame)showPause();};
 world.onTap=(x,y)=>{
@@ -88,8 +89,15 @@ function syncVisuals(dt){
   const entry=world.characters.get(c.id);if(!entry)continue;const g=entry.group;
   if(c.dead){g.visible=false;continue;}
   if(c.isPet){g.userData.bubble?.update(dt,bubbleFor(c));continue;}   // the world moves At Home's pet sprites
-  g.position.set(c.x,c.y,c.z);g.rotation.y=c.heading||0;g.scale.setScalar(c.size);
-  g.userData.update(dt,c.state,c.moving,Math.hypot(c.vx||0,c.vz||0)/Math.max(.5,c.size),bubbleFor(c));
+  g.scale.setScalar(c.size);
+  if(c.station){
+   const p=stationPose(c.station),kind=c.station.kind,options={...bubbleFor(c),pose:kind,busy:c.busy};
+   if(kind==='sit'){g.position.set(p.x,p.top-.5*c.size,p.z);g.rotation.set(0,p.yaw,0,'YXZ');}
+   else if(kind==='lie'){g.position.set(p.x-p.fx*.8*c.size,p.top+.17*c.size,p.z-p.fz*.8*c.size);g.rotation.set(-Math.PI/2,Math.atan2(-p.fx,-p.fz),0,'YXZ');}
+   else{g.position.set(p.x,p.floor,p.z);g.rotation.set(0,p.yaw,0,'YXZ');}
+   g.userData.update(dt,c.state,false,0,options);
+  }
+  else{g.position.set(c.x,c.y,c.z);g.rotation.set(0,c.heading||0,0,'YXZ');g.userData.update(dt,c.state,c.moving,Math.hypot(c.vx||0,c.vz||0)/Math.max(.5,c.size),bubbleFor(c));}
  }
  const z=game.zombie;
  if(z&&zombieDoll){zombieDoll.position.set(z.x,z.y,z.z);zombieDoll.rotation.y=z.heading||0;const moving=['entering','walking','leaving'].includes(z.phase)&&z.path?.length>0;zombieDoll.userData.update(dt,'zombie',moving,z.speed||.7,z.phase==='choosing'?{emoji:'🧟',urgency:1-z.timer/RULES.ZOMBIE_CHOICE_TIME,pulse:true}:z.phase==='eating'?{emoji:'😈',tint:'#b71c1c',pulse:true}:{emoji:'🧟',tint:'#33691e'});}
@@ -98,7 +106,7 @@ function bubbleFor(c){
  if(c.state==='request'&&c.need)return {emoji:c.need.emoji,urgency:1-c.reqT/RULES.REQUEST_TIME,pulse:c.reqT<10};
  if(c.state==='going'&&c.destination)return {emoji:ZONES[c.destination.zone].emoji,tint:'#1565c0'};
  if(c.state==='work')return {emoji:'💼',tint:'#1565c0'};
- if(c.state==='happy')return {emoji:'💕',tint:'#e91e63'};
+ if(c.state==='happy')return {emoji:{eating:'🍽️',napping:'💤',resting:'☕',showering:'🚿','on the toilet':'🚽',exercising:'🏋️',playing:'🎮'}[c.busy]||'💕',tint:'#e91e63'};
  if(c.state==='tickle')return {emoji:'🤭',tint:'#e91e63'};
  if(c.state==='doomed')return {emoji:'😱',tint:'#b71c1c',pulse:true};
  return {};
@@ -120,7 +128,7 @@ function statusFor(c){
  if(c.state==='request'&&c.need)return `${c.need.emoji} ${c.need.want} · ${Math.ceil(c.reqT)}s`;
  if(c.state==='going'&&c.destination)return `🚶 off to the ${ZONES[c.destination.zone].label}`;
  if(c.state==='work')return `💼 working · $${game.workPay(c)} in ${Math.ceil(RULES.WORK_PAY_EVERY-c.workTimer)}s`;
- if(c.state==='happy')return '💕 feeling great';
+ if(c.state==='happy')return {eating:'🍽️ eating at the table',napping:'💤 napping in bed',resting:'☕ resting on the sofa',showering:'🚿 in the shower','on the toilet':'🚽 on the toilet',exercising:'🏋️ exercising',playing:'🎮 playing'}[c.busy]||'💕 feeling great';
  if(c.state==='tickle')return '🤭 giggling';
  if(c.state==='doomed')return '😱 frozen in fear';
  if(c.isPet)return {sleep:'💤 napping',lounge:'😸 lounging',groom:'🧼 grooming',chew:'🦴 chewing the bone',play:'🎾 playing together'}[c.activity]||'🐾 pottering about';
@@ -140,8 +148,8 @@ function updateMarkers(){
  const host=$('#markers');if(!host)return;
  const wanted=new Map();
  if(game.running){
-  for(const c of game.chars){if(c.dead)continue;if(c.state==='request'&&c.need)wanted.set(c.id,{x:c.x,y:c.y+(c.isPet?c.height+.55:2.05*c.size),z:c.z,text:`${c.need.emoji} ${c.name} · ${Math.ceil(c.reqT)}s`,urgency:1-c.reqT/RULES.REQUEST_TIME});else if(c.state==='doomed')wanted.set(c.id,{x:c.x,y:c.y+2*c.size,z:c.z,text:`😱 ${c.name}`,urgency:1});}
-  const z=game.zombie;if(z&&z.phase==='choosing')wanted.set('zombie',{x:z.x,y:z.y+2.2,z:z.z,text:`🧟 FEED ME! ${Math.ceil(z.timer)}s`,urgency:1});
+  for(const c of game.chars){if(c.dead)continue;if(c.state==='request'&&c.need)wanted.set(c.id,{x:c.x,y:c.y+(c.isPet?c.height+.55:2.05*c.size),z:c.z,emoji:c.need.emoji,text:`${c.name} ${c.need.want}`,time:`${Math.ceil(c.reqT)}s`,need:true,urgency:1-c.reqT/RULES.REQUEST_TIME});else if(c.state==='doomed')wanted.set(c.id,{x:c.x,y:c.y+2*c.size,z:c.z,emoji:'😱',text:c.name,urgency:1});}
+  const z=game.zombie;if(z&&z.phase==='choosing')wanted.set('zombie',{x:z.x,y:z.y+2.2,z:z.z,emoji:'🧟',text:'FEED ME!',time:`${Math.ceil(z.timer)}s`,need:true,urgency:1});
  }
  for(const [id,el] of markers)if(!wanted.has(id)){el.remove();markers.delete(id);}
  const b=viewportBounds(),cam=world.camera;const feet=world.feetPosition;
@@ -157,8 +165,8 @@ function updateMarkers(){
    const cx=b.width/2,cy=b.height/2;let dx=sx-cx,dy=sy-cy;if(behind){dx=-dx;dy=Math.abs(dy)||1;}
    const scale=Math.min((cx-margin)/Math.abs(dx||1e-6),(cy-margin)/Math.abs(dy||1e-6));sx=cx+dx*scale;sy=cy+dy*scale;
    const angle=Math.atan2(dy,dx)*180/Math.PI;
-   el.innerHTML=`<span>${m.text} · ${distance.toFixed(0)}m</span><i style="transform:rotate(${angle}deg)">➤</i>`;
-  }else el.innerHTML=`<span>${m.text}</span>`;
+   el.innerHTML=`<i style="transform:rotate(${angle}deg)">➤</i><b>${m.emoji}</b><span>${m.need?'<em>Go help</em> ':''}${m.text}${m.time?` · ${m.time}`:''} · ${distance.toFixed(0)}m</span>`;
+  }else el.innerHTML=`<b>${m.emoji}</b><span>${m.text}${m.time?` · ${m.time}`:''}</span>`;
   el.className='marker'+(m.urgency>.65?' urgent':m.urgency>.35?' warm':'')+(inside?'':' edge');
   el.style.transform=`translate(${sx}px,${sy}px) translate(-50%,-100%)`;
  }
