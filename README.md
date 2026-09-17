@@ -56,7 +56,7 @@ Import the repository as a Vite project (`vercel.json` already sets the build co
 - `src/stations.js` — the chairs, sofa seats, toilet, beds, shower, games and mats people occupy, each exclusive, with the standing spots they are reached from.
 - `src/powder-door.js` — the hinged powder-room door and its moving collider.
 - `src/pet-roaming.js` — At Home's pet roaming, changed only to borrow the game's walking graph instead of resampling the house.
-- `src/family.js` — the 3D family dolls, need bubbles, floating text, hearts, ghosts and memorials.
+- `src/family.js` — the family dolls (round heads with eyes, brows, noses and smiles, tees over trousers or a skirt, arms that bend at the elbow), their need bubbles and the effects; each doll is a handful of merged vertex-coloured meshes.
 - `src/world.js` — the renderer, first-person movement and aiming, adapted from At Home's scene.
 - `src/main.js` — HUD, roster, markers, menus, leaderboard and the game loop.
 - `src/house/` — At Home's modules, unchanged: walls, furniture, textures, daylight, balcony life, fixtures, hands, turntable, cinema, claw and pinball, pet sprites, pet social play and the fetch bone. `life.js` is a small stand-in that only supplies the clock helper and the pet roster.

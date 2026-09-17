@@ -1,52 +1,85 @@
 import * as THREE from 'three';
 import {mergeGeometries} from 'three/addons/utils/BufferGeometryUtils.js';
 
-// Little 3D versions of PennyGame's canvas family: round heads, bright shirts,
-// swinging legs, and arms that wave in the air when someone needs something.
+// Little 3D versions of PennyGame's canvas family: round heads with proper
+// faces, tees over trousers or a skirt, arms that bend at the elbow, legs that
+// swing, and hands that wave in the air when someone needs something.
 const materials=new Map();
 export const colorMat=(hex,roughness=.85)=>{const key=hex+':'+roughness;if(!materials.has(key))materials.set(key,new THREE.MeshStandardMaterial({color:new THREE.Color(hex),roughness}));return materials.get(key);};
 const geo={
- leg:new THREE.CylinderGeometry(.055,.05,.5,10),arm:new THREE.CylinderGeometry(.045,.04,.42,10),
- body:new THREE.CylinderGeometry(.16,.19,.46,16),shoulders:new THREE.SphereGeometry(.165,16,10),
- head:new THREE.SphereGeometry(.19,20,14),hair:new THREE.SphereGeometry(.2,18,12),bun:new THREE.SphereGeometry(.09,12,8),
- eye:new THREE.SphereGeometry(.028,8,6),cheek:new THREE.SphereGeometry(.03,8,6),tail:new THREE.CylinderGeometry(.05,.03,.28,8),
- shadow:new THREE.CircleGeometry(.3,24),foot:new THREE.SphereGeometry(.065,10,8),
+ leg:new THREE.CapsuleGeometry(.058,.3,4,12),shoe:new THREE.SphereGeometry(.07,12,8),hips:new THREE.CylinderGeometry(.165,.175,.14,18),
+ torso:new THREE.CapsuleGeometry(.17,.28,4,20),collar:new THREE.TorusGeometry(.1,.024,8,20),neck:new THREE.CylinderGeometry(.06,.065,.12,12),
+ sleeve:new THREE.CapsuleGeometry(.064,.1,4,12),upperArm:new THREE.CapsuleGeometry(.048,.14,4,10),forearm:new THREE.CapsuleGeometry(.045,.16,4,10),hand:new THREE.SphereGeometry(.056,12,8),
+ skirt:new THREE.CylinderGeometry(.17,.26,.24,20,1,true),badge:new THREE.SphereGeometry(.05,12,8),
+ head:new THREE.SphereGeometry(.2,26,18),ear:new THREE.SphereGeometry(.045,10,8),nose:new THREE.SphereGeometry(.028,10,8),
+ smile:new THREE.TorusGeometry(.036,.009,6,12,Math.PI),mouthLine:new THREE.BoxGeometry(.07,.014,.012),tooth:new THREE.BoxGeometry(.016,.018,.01),
+ sclera:new THREE.SphereGeometry(.034,12,10),pupil:new THREE.SphereGeometry(.019,10,8),glint:new THREE.SphereGeometry(.008,6,5),brow:new THREE.BoxGeometry(.06,.013,.012),
+ cheek:new THREE.SphereGeometry(.03,8,6),
+ cap:new THREE.SphereGeometry(.215,22,16,0,Math.PI*2,0,1.6),longCap:new THREE.SphereGeometry(.215,22,16,0,Math.PI*2,0,1.95),
+ fringe:new THREE.SphereGeometry(.212,22,8,Math.PI/2-1.05,2.1,.42,.62),bun:new THREE.SphereGeometry(.085,14,10),tuft:new THREE.CapsuleGeometry(.04,.09,4,8),tail:new THREE.CapsuleGeometry(.045,.2,4,10),tie:new THREE.TorusGeometry(.045,.012,6,12),
+ shadow:new THREE.CircleGeometry(.3,24),
 };
 const shadowMat=new THREE.MeshBasicMaterial({color:0x2a3128,transparent:true,opacity:.18,depthWrite:false});
-const black=colorMat('#1d1a18',.5),white=colorMat('#ffffff',.4),pink=colorMat('#ff9db2',.9);
 const steamMat=new THREE.MeshStandardMaterial({color:0xe6f2f7,roughness:.55,transparent:true,opacity:.94,depthWrite:false});
 const bubbleMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:.2,transparent:true,opacity:.75});
 
 // Each doll is only a few draw calls: every limb, the body and the head are
 // merged into one vertex-coloured mesh apiece, sharing a single material.
-const dollMaterial=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.85});
+const dollMaterial=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.62});
+const shade=(hex,l)=>new THREE.Color(hex).offsetHSL(0,0,l);
 const paint=(geometry,hex)=>{const color=new THREE.Color(hex),n=geometry.attributes.position.count,data=new Float32Array(n*3);for(let i=0;i<n;i++)color.toArray(data,i*3);geometry.setAttribute('color',new THREE.BufferAttribute(data,3));return geometry;};
 function merged(parts){
  const list=parts.map(({geometry,color,position=[0,0,0],scale=[1,1,1],rotation=[0,0,0]})=>{const g=geometry.clone();g.applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3(...position),new THREE.Quaternion().setFromEuler(new THREE.Euler(...rotation)),new THREE.Vector3(...scale)));return paint(g,color);});
  const mesh=new THREE.Mesh(mergeGeometries(list,false),dollMaterial);for(const g of list)g.dispose();mesh.castShadow=true;return mesh;
 }
+// Hair by style: a cap that sits back on the head plus a fringe, then buns, a
+// tuft or a ponytail. The zombie gets a matted crop.
+function hairParts(style,hair,zombie){
+ const fringe=[{geometry:geo.fringe,color:hair,position:[0,.17,.012],scale:[1.02,1.06,1.02]}];
+ if(zombie)return [{geometry:geo.cap,color:hair,position:[0,.2,-.02],scale:[1,.92,1]},{geometry:geo.fringe,color:hair,position:[.03,.17,.012],scale:[.7,1.06,1.02]}];
+ if(style===0)return [{geometry:geo.cap,color:hair,position:[0,.2,-.015],scale:[1.02,.95,1.02]},...fringe];   // short crop
+ if(style===1)return [{geometry:geo.longCap,color:hair,position:[0,.19,-.02],scale:[1.04,.98,1.04]},...fringe,{geometry:geo.bun,color:hair,position:[-.21,.3,-.04]},{geometry:geo.bun,color:hair,position:[.21,.3,-.04]}];   // side buns
+ if(style===2)return [{geometry:geo.cap,color:hair,position:[0,.2,-.015],scale:[1.02,.95,1.02]},...fringe,{geometry:geo.tuft,color:hair,position:[.03,.42,.02],rotation:[0,0,-.5]}];   // short with a tuft
+ return [{geometry:geo.longCap,color:hair,position:[0,.19,-.02],scale:[1.04,1,1.04]},...fringe,{geometry:geo.tie,color:'#ff4f8b',position:[0,.12,-.2],rotation:[Math.PI/2+.5,0,0]},{geometry:geo.tail,color:hair,position:[0,.02,-.24],rotation:[.55,0,0]}];   // ponytail
+}
 export function createDoll(c,{zombie=false}={}){
  const g=new THREE.Group();g.name=c.name;
- const skin=zombie?'#8bc34a':c.skin,shirt=zombie?'#5d7052':c.shirt,hair=zombie?'#2f3a26':c.hair,trousers=zombie?'#33402e':'#3f4d6b',shoe='#1d1a18';
- const pivot=(x,y,z,mesh)=>{const p=new THREE.Group();p.position.set(x,y,z);p.add(mesh);g.add(p);return p;};
+ const skin=zombie?'#9ccc65':c.skin,shirt=zombie?'#5d7052':c.shirt,hair=zombie?'#2f3a26':c.hair,pants=zombie?'#33402e':(c.pants||'#3f4d6b'),shoe='#2b2622';
+ const skinDark=shade(skin,-.08),shirtDark=shade(shirt,-.16),shirtLight=shade(shirt,.22),dress=!zombie&&c.gender==='f',lip='#c2455a';
+ const pivot=(x,y,z,mesh,parent=g)=>{const p=new THREE.Group();p.position.set(x,y,z);p.add(mesh);parent.add(p);return p;};
  const shadow=new THREE.Mesh(geo.shadow,shadowMat);shadow.rotation.x=-Math.PI/2;shadow.position.y=.004;g.add(shadow);
- const legs=[-.075,.075].map(x=>pivot(x,.52,0,merged([{geometry:geo.leg,color:trousers,position:[0,-.25,0]},{geometry:geo.foot,color:shoe,position:[0,-.5,.03],scale:[1,.7,1.4]}])));
- g.add(merged([{geometry:geo.body,color:shirt,position:[0,.76,0]},{geometry:geo.shoulders,color:shirt,position:[0,.98,0],scale:[1,.55,1]}]));
- const arms=[-.21,.21].map(x=>pivot(x,.98,0,merged([{geometry:geo.arm,color:shirt,position:[0,-.19,0]},{geometry:geo.foot,color:skin,position:[0,-.42,0],scale:[.85,.85,.85]}])));
- const headParts=[{geometry:geo.head,color:skin,position:[0,.16,0]}];
- if(zombie)headParts.push({geometry:geo.hair,color:hair,position:[0,.28,-.03],scale:[1,.7,1]});
- else if(c.hairStyle===0)headParts.push({geometry:geo.hair,color:hair,position:[0,.27,-.03],scale:[1.02,.72,1.02]});           // short crop
- else if(c.hairStyle===1)headParts.push({geometry:geo.hair,color:hair,position:[0,.22,-.03],scale:[1.03,.9,1.03]},{geometry:geo.bun,color:hair,position:[-.19,.28,-.02]},{geometry:geo.bun,color:hair,position:[.19,.28,-.02]});   // side buns
- else if(c.hairStyle===2)headParts.push({geometry:geo.hair,color:hair,position:[0,.26,-.03],scale:[1.02,.78,1.02]},{geometry:geo.bun,color:hair,position:[.02,.4,-.02],scale:[.6,1,.6]});   // short with a tuft
- else headParts.push({geometry:geo.hair,color:hair,position:[0,.22,-.03],scale:[1.03,.95,1.03]},{geometry:geo.tail,color:hair,position:[0,.1,-.2],rotation:[.55,0,0]});   // ponytail
- if(!zombie)for(const x of [-.11,.11])headParts.push({geometry:geo.cheek,color:'#ff9db2',position:[x,.12,.15],scale:[1,.6,.5]});
- if(zombie){headParts.push({geometry:geo.cheek,color:'#1d1a18',position:[0,.07,.17],scale:[1.6,.9,.5]});for(const x of [-.03,.03])headParts.push({geometry:geo.cheek,color:'#ffffff',position:[x,.055,.19],scale:[.35,.6,.3]});}
+ // Legs swing from the hips; girls wear tights under a skirt, everyone else trousers.
+ const legs=[-.08,.08].map(x=>pivot(x,.52,0,merged([{geometry:geo.leg,color:dress?skinDark:pants,position:[0,-.24,0]},{geometry:geo.shoe,color:shoe,position:[0,-.47,.035],scale:[1,.62,1.45]}])));
+ const body=[{geometry:geo.hips,color:dress?shirt:pants,position:[0,.56,0]},{geometry:geo.torso,color:shirt,position:[0,.8,0],scale:[1.05,1,.92]},
+  {geometry:geo.collar,color:shirtDark,position:[0,1.03,0],rotation:[Math.PI/2,0,0]},{geometry:geo.neck,color:skin,position:[0,1.06,0]},
+  {geometry:geo.badge,color:shirtLight,position:[0,.87,.152],scale:[.75,.75,.25]}];
+ if(dress)body.push({geometry:geo.skirt,color:pants,position:[0,.5,0]});
+ else body.push({geometry:geo.hips,color:shade(pants,-.18),position:[0,.62,0],scale:[1.01,.18,1.01]});   // belt
+ g.add(merged(body));
+ // Arms: a short sleeve and upper arm at the shoulder, a forearm and hand from the elbow.
+ const arms=[],elbows=[];
+ for(const x of [-.215,.215]){
+  const shoulder=pivot(x,.99,0,merged([{geometry:geo.sleeve,color:shirt,position:[0,-.06,0]},{geometry:geo.upperArm,color:skin,position:[0,-.16,0]}]));
+  const elbow=pivot(0,-.24,0,merged([{geometry:geo.forearm,color:skin,position:[0,-.08,0]},{geometry:geo.hand,color:skin,position:[0,-.19,0]}]),shoulder);
+  arms.push(shoulder);elbows.push(elbow);
+ }
+ const headParts=[{geometry:geo.head,color:skin,position:[0,.17,0],scale:[1,1.04,1]},{geometry:geo.nose,color:skinDark,position:[0,.13,.195],scale:[1,.85,.8]},...hairParts(c.hairStyle,hair,zombie)];
+ for(const x of [-.195,.195])headParts.push({geometry:geo.ear,color:skin,position:[x,.15,0],scale:[.55,1,.8]});
+ for(const x of [-.078,.078])headParts.push({geometry:geo.brow,color:zombie?'#1d1a18':shade(hair,-.05),position:[x,.255,.178],rotation:[0,0,x<0?-.16:.16]});
+ if(zombie){headParts.push({geometry:geo.mouthLine,color:'#1d1a18',position:[0,.075,.192],scale:[1.5,.9,1]});for(const x of [-.028,.028])headParts.push({geometry:geo.tooth,color:'#f4f1e6',position:[x,.065,.194]});}
+ else{
+  headParts.push({geometry:geo.smile,color:lip,position:[0,.09,.192],rotation:[0,0,Math.PI],scale:[1,.8,.6]});
+  for(const x of [-.125,.125])headParts.push({geometry:geo.cheek,color:'#ff9db2',position:[x,.11,.15],scale:[1,.6,.4]});
+ }
  const headPivot=pivot(0,1.14,0,merged(headParts));
- const eyes=[-.07,.07].map(x=>{const e=new THREE.Mesh(geo.eye,zombie?colorMat('#b71c1c',.4):black);e.position.set(x,.17,.165);if(zombie&&x>0)e.scale.setScalar(.7);headPivot.add(e);return e;});
+ const eyes=[-.076,.076].map(x=>{
+  const eye=merged([{geometry:geo.sclera,color:'#ffffff',position:[0,0,0],scale:[1,1.15,.55]},{geometry:geo.pupil,color:zombie?'#c62828':'#2a201c',position:[0,0,.02],scale:[1,1.1,.7]},{geometry:geo.glint,color:'#ffffff',position:[-.008*Math.sign(x)-.004,.009,.034]}]);
+  const p=pivot(x,.185,.172,eye,headPivot);if(zombie&&x>0)p.scale.setScalar(.75);return p;
+ });
  const bubble=createBubble();bubble.position.y=1.85;g.add(bubble);
  // A frosted steam screen hides the body in the shower; the head stays visible.
  const steam=new THREE.Mesh(new THREE.CylinderGeometry(.44,.4,1.12,20),steamMat);steam.position.y=.66;steam.visible=false;g.add(steam);
- const bubbles=[0,1,2,3,4].map(i=>{const b=new THREE.Mesh(geo.eye,bubbleMat);b.scale.setScalar(1.4+i*.3);steam.add(b);b.position.y=.3+i*.2;return b;});
+ const bubbles=[0,1,2,3,4].map(i=>{const b=new THREE.Mesh(geo.pupil,bubbleMat);b.scale.setScalar(2+i*.45);steam.add(b);b.position.y=.3+i*.2;return b;});
  let phase=Math.random()*6,t=0,blink=2+Math.random()*3;
  g.userData.update=(dt,state,moving,speed,options={})=>{
   t+=dt;blink-=dt;if(blink<-.12)blink=2+Math.random()*4;
@@ -55,22 +88,23 @@ export function createDoll(c,{zombie=false}={}){
   legs[0].rotation.x=sitting?-1.3:swing;legs[1].rotation.x=sitting?-1.3:-swing;
   const spread=pose==='exercise'?.28+Math.max(0,Math.sin(t*7))*.35:0;legs[0].rotation.z=spread;legs[1].rotation.z=-spread;
   steam.visible=pose==='shower';if(steam.visible)for(const [i,b] of bubbles.entries()){b.position.y=.35+((t*.35+i*.23)%1)*1.1;b.position.x=Math.sin(t*2+i)*.32;b.position.z=Math.cos(t*1.7+i*2)*.32;}
-  let armL=-swing*.8,armR=swing*.8,armZ=.12,bob=moving?Math.abs(Math.sin(phase))*.03:Math.sin(t*2)*.01,tilt=0,headY=0;
-  if(state==='request'){const wave=Math.sin(t*11)*.35;armL=-.4;armR=-.4;armZ=2.55+wave;bob=Math.abs(Math.sin(t*6))*.05;}
-  else if(state==='work'){armL=armR=-1.15+Math.sin(t*9)*.06;armZ=.35;}
-  else if(pose==='lie'){armL=armR=.15;armZ=.3;bob=Math.sin(t*1.6)*.012;}
-  else if(pose==='shower'){armL=-1.2+Math.sin(t*10)*.45;armR=-1.2-Math.sin(t*10)*.45;armZ=.55;bob=Math.abs(Math.sin(t*5))*.015;}
-  else if(pose==='exercise'){armL=armR=-.2;armZ=1.6+Math.sin(t*7)*1.35;bob=Math.max(0,Math.sin(t*7))*.14;}
-  else if(pose==='play'){armL=armR=-1.3+Math.sin(t*14)*.12;armZ=.3;bob=Math.abs(Math.sin(t*3))*.02;}
-  else if(pose==='sit'&&state==='happy'&&options.busy==='eating'){armL=armR=-1.0+Math.sin(t*5)*.15;armZ=.25;bob=Math.abs(Math.sin(t*5))*.02;}   // tucking in at the table
-  else if(pose==='sit'&&state!=='request'&&state!=='work'){armL=armR=-.55;armZ=.2;bob=0;}
-  else if(state==='happy'){bob=Math.abs(Math.sin(t*10))*.14;armZ=1.2+Math.sin(t*10)*.5;armL=armR=-.3;}
-  else if(state==='tickle'){tilt=Math.sin(t*22)*.14;armZ=1.6;armL=armR=.4;bob=Math.abs(Math.sin(t*16))*.05;}
-  else if(state==='doomed'){tilt=Math.sin(t*35)*.05;armZ=2.3;armL=armR=-.9;}
-  else if(zombie){armL=armR=-1.45+Math.sin(t*3)*.1;armZ=.15;headY=Math.sin(t*2.2)*.08;}
-  arms[0].rotation.set(armL,0,armZ);arms[1].rotation.set(armR,0,-armZ);
+  let armL=-swing*.8,armR=swing*.8,armZ=.1,bob=moving?Math.abs(Math.sin(phase))*.03:Math.sin(t*2)*.01,tilt=0,headY=0,elbowL=-.3,elbowR=-.3;
+  if(state==='request'){const wave=Math.sin(t*11)*.35;armL=-.4;armR=-.4;armZ=2.55+wave;bob=Math.abs(Math.sin(t*6))*.05;elbowL=-.5+wave;elbowR=-.5-wave;}
+  else if(state==='work'){armL=armR=-.9+Math.sin(t*9)*.05;armZ=.3;elbowL=elbowR=-1.1+Math.sin(t*9)*.15;}
+  else if(pose==='lie'){armL=armR=.15;armZ=.25;bob=Math.sin(t*1.6)*.012;elbowL=elbowR=-.15;}
+  else if(pose==='shower'){armL=-1.2+Math.sin(t*10)*.45;armR=-1.2-Math.sin(t*10)*.45;armZ=.55;bob=Math.abs(Math.sin(t*5))*.015;elbowL=elbowR=-1.1;}
+  else if(pose==='exercise'){armL=armR=-.2;armZ=1.6+Math.sin(t*7)*1.35;bob=Math.max(0,Math.sin(t*7))*.14;elbowL=elbowR=-.1;}
+  else if(pose==='play'){armL=armR=-1.0+Math.sin(t*14)*.08;armZ=.3;bob=Math.abs(Math.sin(t*3))*.02;elbowL=elbowR=-1.2+Math.sin(t*14)*.1;}
+  else if(pose==='sit'&&state==='happy'&&options.busy==='eating'){const bite=Math.sin(t*5);armL=-.8+bite*.1;armR=-.8-bite*.1;armZ=.25;bob=Math.abs(bite)*.02;elbowL=-1.5+bite*.4;elbowR=-1.5-bite*.4;}   // tucking in at the table
+  else if(pose==='sit'&&state!=='request'&&state!=='work'){armL=armR=-.5;armZ=.2;bob=0;elbowL=elbowR=-.9;}
+  else if(state==='happy'){bob=Math.abs(Math.sin(t*10))*.14;armZ=1.2+Math.sin(t*10)*.5;armL=armR=-.3;elbowL=elbowR=-.5;}
+  else if(state==='tickle'){tilt=Math.sin(t*22)*.14;armZ=1.6;armL=armR=.4;bob=Math.abs(Math.sin(t*16))*.05;elbowL=elbowR=-1.0;}
+  else if(state==='doomed'){tilt=Math.sin(t*35)*.05;armZ=2.3;armL=armR=-.9;elbowL=elbowR=-.4;}
+  else if(zombie){armL=armR=-1.45+Math.sin(t*3)*.1;armZ=.15;headY=Math.sin(t*2.2)*.08;elbowL=elbowR=-.2;}
+  else if(moving){elbowL=-.45-swing*.3;elbowR=-.45+swing*.3;}
+  arms[0].rotation.set(armL,0,armZ);arms[1].rotation.set(armR,0,-armZ);elbows[0].rotation.x=elbowL;elbows[1].rotation.x=elbowR;
   g.rotation.z=tilt;headPivot.rotation.set(headY,0,0);headPivot.position.y=1.14+bob;
-  const eyeScale=blink<0||pose==='lie'?.15:1;eyes[0].scale.y=eyeScale;eyes[1].scale.y=eyeScale*(zombie?.7:1);
+  const eyeScale=blink<0||pose==='lie'?.12:1;eyes[0].scale.y=eyeScale;eyes[1].scale.y=eyeScale*(zombie?.75:1);
   bubble.update(dt,options);
  };
  g.userData.bubble=bubble;
