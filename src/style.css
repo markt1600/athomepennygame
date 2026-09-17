@@ -25,8 +25,9 @@ button:focus-visible,input:focus-visible{outline:3px solid #ff8fab99;outline-off
 #roster li.needs{background:#fff3c2;outline:2px solid #e0a800}#roster li.urgent{background:#ffd9d9;outline:2px solid var(--bad);animation:beat 1s ease-in-out infinite}#roster li.dead{opacity:.45}
 #roster .fine{font-size:10px;opacity:.6;margin:6px 0 0}
 #markers{position:absolute;inset:0;overflow:hidden}
-.marker{position:absolute;left:0;top:0;white-space:nowrap;background:#fffefbf2;border:2px solid #e0a800;border-radius:30px;padding:3px 11px;font-size:13px;font-weight:700;box-shadow:0 3px 10px #0003;pointer-events:none;will-change:transform}
-.marker.warm{border-color:#ff8c3c}.marker.urgent{border-color:var(--bad);background:#ffe3e3f2;animation:beat 1s ease-in-out infinite}
+.marker{position:absolute;left:0;top:0;transform:translate(-50%,-100%);white-space:nowrap;background:#fffefbf2;border:2px solid #e0a800;border-radius:30px;padding:3px 11px;font-size:13px;font-weight:700;box-shadow:0 3px 10px #0003;pointer-events:none;will-change:transform}
+.marker.warm{border-color:#ff8c3c}.marker.urgent{border-color:var(--bad);background:#ffe3e3f2;animation:beatMarker 1s ease-in-out infinite}
+@keyframes beatMarker{0%,100%{transform:translate(-50%,-100%) scale(1)}12%{transform:translate(-50%,-100%) scale(1.2)}24%{transform:translate(-50%,-100%) scale(1.05)}36%{transform:translate(-50%,-100%) scale(1.15)}}
 .marker{display:flex;align-items:center;gap:6px}.marker b{font-size:20px;line-height:1}.marker em{font-style:normal;font-size:10px;letter-spacing:.08em;text-transform:uppercase;background:var(--ink);color:#fff;border-radius:6px;padding:1px 5px;margin-right:4px}
 .marker.edge{border-radius:14px;padding:5px 12px}.marker i{display:inline-block;font-style:normal;font-size:16px;color:#c62828}
 #look-hint{position:absolute;left:50%;top:60%;transform:translateX(-50%);background:#fffefbf0;border:2px solid var(--ink);border-radius:30px;padding:8px 18px;font-size:14px;font-weight:700}
@@ -113,3 +114,24 @@ html.touch-device #roster li .where{display:block}
 html.touch-device #log{bottom:180px}html.touch-device #toast{bottom:200px}
 @media(max-width:850px){#hud{gap:5px}.stat{font-size:13px;min-width:66px;padding:3px 8px 4px}.stat small{font-size:8px}#roster{top:auto;bottom:100px;width:min(240px,calc(100vw - 20px));max-height:32vh;font-size:11px;padding:6px 8px}#roster h3{font-size:12px}#roster li .where{display:none}.overlay h1{font-size:24px}.rules{font-size:11px}.controls{display:none}#log{bottom:8px;font-size:13px}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* phones: a touch screen with little room (set by main.js) */
+html.phone #hud{top:max(6px,env(safe-area-inset-top));left:8px;right:8px;gap:4px}
+html.phone .stat{font-size:12px;min-width:50px;padding:2px 6px 3px;border-width:2px;border-radius:10px;box-shadow:0 2px 0 #cdb9a3,0 3px 8px #0002}
+html.phone .stat small{font-size:7px;letter-spacing:.2px}
+html.phone #pauseBtn{display:none}html.phone .cornerBtn{font-size:14px;padding:3px 7px;border-radius:9px}
+html.phone .marker{font-size:11px;padding:2px 8px}html.phone .marker b{font-size:15px}
+html.phone .marker.tray{transform:none;transform-origin:left center;animation-name:beatTray;max-width:calc(100vw - 16px);padding:3px 9px 3px 7px;border-radius:11px;gap:5px}
+html.phone .marker.tray.first{max-width:calc(100vw - 16px)}
+@keyframes beatTray{0%,100%{transform:scale(1)}12%{transform:scale(1.06)}24%{transform:scale(1.02)}36%{transform:scale(1.05)}}html.phone .marker.tray span{overflow:hidden;text-overflow:ellipsis}html.phone .marker.tray i{font-size:14px}html.phone .marker.tray em{font-size:9px;padding:0 4px;margin-right:2px}
+html.phone #roster{top:calc(var(--hud-bottom,80px) + 6px);bottom:auto;left:auto;right:8px;width:min(260px,calc(100vw - 24px));max-height:calc(var(--view-height,100dvh) - var(--hud-bottom,80px) - 230px);font-size:11px;padding:5px 9px;pointer-events:auto}
+html.phone #roster.collapsed{display:none}   /* the family button in the HUD opens it */
+#rosterBtn{display:none}html.phone #rosterBtn{display:inline-block}
+html.phone #roster:not(.collapsed)~#markers .marker.tray{display:none!important}   /* the open roster lists the needs itself */
+html.phone #roster h3{margin:0;font-size:12px;gap:8px}html.phone #roster.collapsed ol,html.phone #roster.collapsed .fine{display:none}
+html.phone #roster:not(.collapsed) h3{margin-bottom:4px}
+html.phone #look-hint{top:auto;bottom:calc(max(24px,env(safe-area-inset-bottom)) + 168px);font-size:13px;padding:6px 14px;min-height:0;max-width:calc(100vw - 24px)}
+html.phone #log{top:42%;bottom:auto;font-size:12px;max-width:min(360px,72vw);padding:6px 12px}
+html.phone #toast{bottom:auto;top:36%;font-size:13px;padding:9px 14px}
+html.phone .touch-stick{width:118px;height:118px}
+html.phone .touch-actions button{min-width:70px;min-height:44px;padding:8px 10px;font-size:14px}

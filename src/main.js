@@ -21,6 +21,17 @@ import {PETS} from './house/life.js';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 installGameViewport();
 const touchMode=()=>hasTouchInput()||document.documentElement.classList.contains('touch-device');
+// A phone: a touch screen with little room. The HUD shrinks, off-screen needs
+// stack in a tray under it instead of floating around the edges, and the
+// roster folds to a chip so the thumb stick and buttons stay clear.
+const phoneQuery=matchMedia('(max-width:700px),(max-height:520px)');
+const isPhone=()=>touchMode()&&phoneQuery.matches;
+let hudBottom=80;
+function syncLayout(){
+ document.documentElement.classList.toggle('phone',isPhone());
+ const hud=$('#hud');if(hud&&!hud.hidden){hudBottom=hud.offsetTop+hud.offsetHeight;$('#app').style.setProperty('--hud-bottom',hudBottom+'px');}
+}
+phoneQuery.addEventListener('change',syncLayout);
 const ROOM_NAMES={living:'living room',living_landing:'living room',living_south:'dining threshold',hall:'entrance hall',lobby:'lift lobby',passage:'hallway',dining:'dining room',balcony:'living balcony',dining_bay:'dining balcony',kitchen:'kitchen',bedroom:'main bedroom',guest:'second bedroom',study:'home office',wine:'wine cellar',theatre:'window lounge',bath:'main bathroom',powder:'powder room',vanity:'vanity',wardrobe:'wardrobe',meditation:'meditation alcove',utility:'utility yard',service_hall:'service passage',service_bath:'service bathroom',service_room:'service room',store:'store room',east_hall:'bedroom entrance',guest_bath:'second bathroom'};
 const roomName=(x,z)=>ROOM_NAMES[roomAt(x,z)?.id]||'somewhere in the house';
 const clockLabel=hours=>{const h=((hours%24)+24)%24,m=Math.floor(h*60);return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;};
@@ -123,6 +134,7 @@ function updateHUD(){
  const human=Math.min(RULES.COST_CAP,RULES.HUMAN_BASE_COST+Math.floor(g.elapsed/60)),pet=Math.min(RULES.COST_CAP,RULES.PET_BASE_COST+Math.floor(g.elapsed/60));
  stat('cost',`$${human} / $${pet}`);
  const clock=$('#clock');if(clock)clock.firstChild.textContent=clockLabel(g.hours);
+ syncLayout();
 }
 function statusFor(c){
  if(c.dead)return c.deathType==='sleep'?'😇 passed away peacefully':c.deathType==='eaten'?'🧟 eaten by the zombie':'💀 gone';
@@ -153,8 +165,9 @@ function updateMarkers(){
   const z=game.zombie;if(z&&z.phase==='choosing')wanted.set('zombie',{x:z.x,y:z.y+2.2,z:z.z,emoji:'🧟',text:'FEED ME!',time:`${Math.ceil(z.timer)}s`,need:true,urgency:1});
  }
  for(const [id,el] of markers)if(!wanted.has(id)){el.remove();markers.delete(id);}
- const b=viewportBounds(),cam=world.camera;const feet=world.feetPosition;
- for(const [id,m] of wanted){
+ const b=viewportBounds(),cam=world.camera;const feet=world.feetPosition,phone=isPhone();let trayRow=0;
+ const ordered=phone?[...wanted].sort((a,b)=>(b[1].urgency||0)-(a[1].urgency||0)):wanted;
+ for(const [id,m] of ordered){
   let el=markers.get(id);if(!el){el=document.createElement('div');el.className='marker';host.append(el);markers.set(id,el);}
   project.set(m.x,m.y,m.z).project(cam);
   const behind=project.z>1;let sx=(project.x+1)/2*b.width,sy=(1-project.y)/2*b.height;
@@ -167,9 +180,16 @@ function updateMarkers(){
    const scale=Math.min((cx-margin)/Math.abs(dx||1e-6),(cy-margin)/Math.abs(dy||1e-6));sx=cx+dx*scale;sy=cy+dy*scale;
    const angle=Math.atan2(dy,dx)*180/Math.PI;
    el.innerHTML=`<i style="transform:rotate(${angle}deg)">➤</i><b>${m.emoji}</b><span>${m.need?'<em>Go help</em> ':''}${m.text}${m.time?` · ${m.time}`:''} · ${distance.toFixed(0)}m</span>`;
+   if(phone){   // stacked under the HUD, most urgent first, instead of floating around the edges
+    el.className='marker edge tray'+(trayRow?'':' first')+(m.urgency>.65?' urgent':m.urgency>.35?' warm':'');
+    el.style.left='8px';el.style.top=`${hudBottom+6+trayRow*31}px`;el.style.display=trayRow<5?'':'none';trayRow++;continue;
+   }
   }else el.innerHTML=`<b>${m.emoji}</b><span>${m.text}${m.time?` · ${m.time}`:''}</span>`;
   el.className='marker'+(m.urgency>.65?' urgent':m.urgency>.35?' warm':'')+(inside?'':' edge');
-  el.style.transform=`translate(${sx}px,${sy}px) translate(-50%,-100%)`;
+  // Keep the whole pill on screen (long names used to run off the right edge). The
+  // urgent beat animates transform, so position with left/top.
+  const hw=el.offsetWidth/2+4,hh=el.offsetHeight+4;sx=Math.max(hw,Math.min(b.width-hw,sx));sy=Math.max(hh,Math.min(b.height-4,sy));
+  el.style.display='';el.style.left=`${sx}px`;el.style.top=`${sy}px`;
  }
 }
 function updateLookHint(id){
@@ -179,7 +199,7 @@ function updateLookHint(id){
  el.textContent=c&&!c.dead?`${key} · talk to ${c.name}`:fixture?`${key} · ${fixture}`:id==='turntable'?`${key} · ${recordPlayer.enabled?(world.turntable.busy?world.turntable.label:'Stop the record'):'Play the record'}`:'';
 }
 function flash(el,cls){if(!el)return;el.classList.remove(cls);void el.offsetWidth;el.classList.add(cls);}
-function logMsg(msg,color){const el=$('#log');el.textContent=msg;el.style.color=color||'';el.classList.add('show');clearTimeout(logTimer);logTimer=setTimeout(()=>el.classList.remove('show'),6000);}
+function logMsg(msg,color){const el=$('#log');el.textContent=msg;el.style.color=color||'';el.classList.add('show');clearTimeout(logTimer);logTimer=setTimeout(()=>el.classList.remove('show'),isPhone()?4200:6000);}
 function toast(msg){const el=$('#toast');el.textContent=msg;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),3800);}
 
 // ---- talking to the family, using the house --------------------------------
@@ -304,6 +324,7 @@ function updateLoading(status){
 $('#retryBtn').onclick=()=>world.loadArtwork();
 // On phones the roster folds down to whoever needs something; tap its title to see everyone.
 $('#roster h3').onclick=()=>$('#roster').classList.toggle('collapsed');
+$('#rosterBtn').onclick=()=>$('#roster').classList.toggle('collapsed');
 if(touchMode())$('#roster').classList.add('collapsed');
 
 // ---- setup controls ---------------------------------------------------------
