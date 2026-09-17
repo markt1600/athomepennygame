@@ -37,7 +37,11 @@ export class Agents{
   this.release(c);const n=this.spot(c,zone);if(!n)return false;
   if(this.roamed(c)){
    const hurry=c.kind==='tortoise'?2.6:1.5;
-   if(!this.petRoaming.command(c.id,n,hurry))return false;
+   // At Home's router keeps pets out of the player's personal space; someone
+   // told to go somewhere while you stand over them should still set off.
+   let ok=this.petRoaming.command(c.id,n,hurry);
+   if(!ok){const player=this.petRoaming.player;this.petRoaming.player=null;ok=this.petRoaming.command(c.id,n,hurry);this.petRoaming.player=player;}
+   if(!ok)return false;
    this.reserved.set(n.key,c);c.spot=n;c.faceZone=zone;c.errand=true;return true;
   }
   const path=this.nav.route(c,n);if(!path)return false;

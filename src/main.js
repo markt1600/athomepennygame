@@ -293,6 +293,9 @@ function updateLoading(status){
  retry.hidden=status.loading||status.ready;
 }
 $('#retryBtn').onclick=()=>world.loadArtwork();
+// On phones the roster folds down to whoever needs something; tap its title to see everyone.
+$('#roster h3').onclick=()=>$('#roster').classList.toggle('collapsed');
+if(touchMode())$('#roster').classList.add('collapsed');
 
 // ---- setup controls ---------------------------------------------------------
 function famPreview(){
@@ -325,7 +328,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden&&game.runni
 
 stat('best',bestScore);
 refreshBoards();
-window.pennyGame={game,world,agents,startGame,openCommand,ZONES,stats,recordPlayer,startCinema,stopCinema};   // handy for tinkering and smoke tests
+window.pennyGame={game,world,agents,startGame,openCommand,ZONES,stats,recordPlayer,startCinema,stopCinema,THREE};   // handy for tinkering and smoke tests
 if(document.fonts?.load)['700 16px "Baloo 2"','800 20px "Baloo 2"'].forEach(f=>document.fonts.load(f).catch(()=>{}));
 document.documentElement.removeAttribute('data-starting');
 $('#setup').classList.add('show');

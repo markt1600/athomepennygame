@@ -102,7 +102,13 @@ html.touch-device body.playing .touch-actions{display:grid;gap:10px;position:fix
 .touch-actions button{min-width:82px;min-height:48px;padding:10px 14px;background:#fffefbe6;border:3px solid var(--ink);border-radius:14px;font-weight:800;touch-action:manipulation}
 html.touch-device .stack kbd{display:none}
 html.touch-device #look-hint{max-width:75vw;min-height:44px;top:56%}
-html.touch-device #roster{top:auto;bottom:190px;max-height:26vh}
+html.touch-device #roster{top:auto;bottom:190px;max-height:30vh;left:12px;right:auto;width:min(250px,calc(100vw - 130px));font-size:11px;padding:6px 9px}
+html.touch-device #roster h3{font-size:12px;cursor:pointer;display:flex;justify-content:space-between}html.touch-device #roster h3::after{content:'▾';opacity:.6}
+html.touch-device #roster.collapsed h3::after{content:'▸'}
+html.touch-device #roster.collapsed ol li:not(.needs):not(.urgent){display:none}
+html.touch-device #roster.collapsed .fine{display:none}
+html.touch-device #roster li .where{display:block}
+@media(max-width:600px){#best,#served,#earned,#cost{display:none}}
 html.touch-device #log{bottom:180px}html.touch-device #toast{bottom:200px}
 @media(max-width:850px){#hud{gap:5px}.stat{font-size:13px;min-width:66px;padding:3px 8px 4px}.stat small{font-size:8px}#roster{top:auto;bottom:100px;width:min(240px,calc(100vw - 20px));max-height:32vh;font-size:11px;padding:6px 8px}#roster h3{font-size:12px}#roster li .where{display:none}.overlay h1{font-size:24px}.rules{font-size:11px}.controls{display:none}#log{bottom:8px;font-size:13px}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}

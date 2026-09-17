@@ -199,10 +199,11 @@ export class World{
     if(this.occluded(centre,distance))continue;
     nearest=id;bestAim=aim;
    }
-   if(!nearest){
-    if(this.turntablePosition){const d=this.turntablePosition.clone().sub(cam);if(d.length()<2.3&&forward.dot(d.clone().normalize())>.72&&!this.occluded(this.turntablePosition,d.length()-.05))nearest='turntable';}
-    const fixture=this.houseInteractions.select();if(fixture)nearest=fixture;
-   }
+   // A fixture wins when the player is looking straight at it, even with a
+   // family member or pet in the wider cone, so Leo cannot sit on his bone.
+   const fixture=this.houseInteractions.select();
+   if(fixture){const item=this.houseInteractions.items.get(fixture),aim=forward.dot(item.pos.clone().sub(cam).normalize());if(!nearest||aim>Math.max(bestAim,.985))nearest=fixture;}
+   if(!nearest&&this.turntablePosition){const d=this.turntablePosition.clone().sub(cam);if(d.length()<2.3&&forward.dot(d.clone().normalize())>.72&&!this.occluded(this.turntablePosition,d.length()-.05))nearest='turntable';}
    const label=this.houseInteractions.label(nearest)||(nearest==='turntable'?this.turntable.label:'');
    if(nearest!==this.lookTarget||label!==this.lastLabel){this.lookTarget=nearest;this.lastLabel=label;this.onLook(nearest);}
   }
