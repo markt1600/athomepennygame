@@ -1,6 +1,7 @@
 import {floorHeight,planPoint,FRONT_DOOR,HOUSE_VIEWS} from './house/house-layout.js';
 import {ZONES} from './zones.js';
 import {PETS} from './house/life.js';
+import {stationPose,stationApproaches} from './stations.js';
 
 // Moves family members, pets and the zombie along the navigation graph. The
 // rules engine decides *what* happens; this layer decides where feet go.
@@ -9,9 +10,18 @@ const SPAWN_VIEWS=['living','dining','kitchen','hall','corridor','wine','study',
 const dist=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 export const walkSpeed=c=>c.isPet?(c.kind==='dog'?.5:c.kind==='cat'?.42:.11):.95*(.55+.45*(c.size||1));
 
+// The standing spot from which a station is used: beside it when the grid
+// has room, otherwise the nearest reachable floor within a metre (a chair
+// hemmed in by its neighbours is reached with a small sideways squeeze).
+export function approachNode(nav,station,from=null){
+ const reachable=n=>!from||nav.route(from,n,{smooth:false});
+ for(const point of stationApproaches(station)){const n=nav.nearest(point.x,point.z,{maxDist:.45});if(n&&reachable(n))return n;}
+ const p=stationPose(station);
+ return nav.nearestNodes(p.x,p.z,{count:40,maxDist:1.6}).find(reachable)||null;
+}
 export class Agents{
- constructor(nav,game,{random=Math.random,petRoaming=null}={}){
-  this.nav=nav;this.game=game;this.random=random;this.reserved=new Map();
+ constructor(nav,game,{random=Math.random,petRoaming=null,stations=[]}={}){
+  this.nav=nav;this.game=game;this.random=random;this.reserved=new Map();this.stations=stations;this.occupied=new Map();
   // With At Home's pet roaming attached, pets keep their own wandering, resting,
   // greeting and fetch behaviour; this layer only sends them on errands.
   this.petRoaming=petRoaming;
@@ -25,7 +35,16 @@ export class Agents{
   const n=this.nav.wanderTarget({x:view[0],z:view[2]},{min:0,max:3})||this.nav.nearest(view[0],view[2]);
   c.x=n.x;c.z=n.z;c.y=n.y;c.heading=this.random()*Math.PI*2;c.path=[];c.idle=this.random()*2;c.moving=false;c.blocked=0;c.spot=null;
  }
- release(c){if(c.spot){this.reserved.delete(c.spot.key);c.spot=null;}}
+ release(c){if(c.spot){this.reserved.delete(c.spot.key);c.spot=null;}if(c.stationTarget&&c.stationTarget!==c.station){this.occupied.delete(c.stationTarget.id);c.stationTarget=null;}}
+ // A free station at the zone (a chair, a bed place, the shower…) with a
+ // standing spot beside it this person can walk to. Falls back to open floor.
+ stationFor(c,zone){
+  for(const station of this.stations.filter(s=>s.zone===zone.id)){
+   const owner=this.occupied.get(station.id);if(owner&&owner!==c)continue;
+   const n=approachNode(this.nav,station,c);if(n)return {station,node:n};
+  }
+  return null;
+ }
  // Choose a standing spot beside the zone's furniture that nobody else holds.
  spot(c,zone){
   const held=[...this.reserved].filter(([,owner])=>owner!==c).map(([k])=>this.nav.nodes.get(k)).filter(Boolean);
@@ -33,8 +52,18 @@ export class Agents{
   const nodes=this.nav.nearestNodes(zone.position[0],zone.position[1],{count:zone.seats+4,maxDist:zone.radius,exclude:taken});
   return nodes.find(n=>this.nav.route(c,n,{smooth:false}))||null;
  }
+ // Using a station moves the character onto it; leaving puts them back on the
+ // floor beside it so the next path starts on open floor.
+ occupy(c,station){const p=stationPose(station);c.station=station;c.stationTarget=null;this.occupied.set(station.id,c);c.x=p.x;c.z=p.z;c.y=p.floor;c.heading=p.yaw;c.moving=false;c.vx=c.vz=0;}
+ vacate(c){
+  if(!c.station)return;const station=c.station;c.station=null;this.occupied.delete(station.id);
+  const spot=approachNode(this.nav,station,null);
+  if(spot){c.squeeze={x:spot.x,z:spot.z};c.heading=Math.atan2(spot.x-c.x,spot.z-c.z);}
+ }
  go(c,zone,purpose){
-  this.release(c);const n=this.spot(c,zone);if(!n)return false;
+  this.release(c);if(c.station&&!this.roamed(c))this.vacate(c);
+  const use=this.roamed(c)?null:this.stationFor(c,zone),n=use?use.node:this.spot(c,zone);if(!n)return false;
+  if(use){this.occupied.set(use.station.id,c);c.stationTarget=use.station;}
   if(this.roamed(c)){
    const hurry=c.kind==='tortoise'?2.6:1.5;
    // At Home's router keeps pets out of the player's personal space; someone
@@ -48,7 +77,7 @@ export class Agents{
   this.reserved.set(n.key,c);c.spot=n;c.path=path;c.hurry=purpose!=='resume'?1.45:1.2;c.moving=true;c.blocked=0;c.faceZone=zone;return true;
  }
  stop(c){if(this.roamed(c)){this.petRoaming.release(c.id,3);this.petRoaming.interact(c.id);c.errand=false;return;}c.path=[];c.moving=false;c.idle=.5+this.random();}
- remove(c){this.release(c);if(this.roamed(c)){this.petRoaming.release(c.id,1e9);this.petRoaming.pets.delete(c.id);return;}c.path=[];c.moving=false;}
+ remove(c){this.release(c);if(c.station){this.occupied.delete(c.station.id);c.station=null;}if(this.roamed(c)){this.petRoaming.release(c.id,1e9);this.petRoaming.pets.delete(c.id);return;}c.path=[];c.moving=false;}
  // Copy At Home's roaming state onto the game character each frame.
  syncPet(c){
   const p=this.roamed(c);if(!p)return;
@@ -104,14 +133,22 @@ export class Agents{
   for(const c of this.game.chars){
    if(this.roamed(c)){if(!c.dead)this.syncPet(c);continue;}
    c.vx=0;c.vz=0;
-   if(c.dead||c.state==='doomed'||c.state==='work'){c.moving=false;if(c.state==='work'&&c.faceZone){this.face(c,c.faceZone);}continue;}
+   if(c.dead||c.state==='doomed'||c.state==='work'){c.moving=false;if(c.state==='work'&&c.faceZone&&!c.station){this.face(c,c.faceZone);}continue;}
+   if(c.squeeze){const d=dist(c,c.squeeze);if(d<.03){c.x=c.squeeze.x;c.z=c.squeeze.z;c.squeeze=null;c.moving=false;}else{const move=Math.min(d,.6*dt);c.vx=(c.squeeze.x-c.x)/d*.6;c.vz=(c.squeeze.z-c.z)/d*.6;c.x+=(c.squeeze.x-c.x)/d*move;c.z+=(c.squeeze.z-c.z)/d*move;c.y=floorHeight(c.x,c.z);c.moving=true;c.heading=Math.atan2(c.vx,c.vz);continue;}}
    if(c.state==='going'){
     const result=this.step(c,dt,walkSpeed(c)*(c.hurry||1.3));
-    if(result==='arrived'){this.face(c,c.faceZone);this.game.arrived(c);if(c.state!=='work')this.release(c);}
-    else if(result==='idle'){this.game.travelFailed(c);this.release(c);}
+    if(result==='arrived'){
+     // The last stretch onto a chair or into a cubicle is a short squeeze
+     // past the furniture, walked slowly in a straight line.
+     if(c.stationTarget&&!c.squeeze){const p=stationPose(c.stationTarget);c.squeeze={x:p.x,z:p.z};c.heading=Math.atan2(p.x-c.x,p.z-c.z);continue;}
+     if(c.stationTarget)this.occupy(c,c.stationTarget);else this.face(c,c.faceZone);
+     this.game.arrived(c);if(c.state!=='work')this.release(c);
+    }
+    else if(result==='idle'){if(c.stationTarget){this.occupy(c,c.stationTarget);this.game.arrived(c);if(c.state!=='work')this.release(c);}else{this.game.travelFailed(c);this.release(c);}}
     continue;
    }
    if(c.state!=='wander'){c.moving=false;continue;}
+   if(c.station){if(c.idle>0){c.idle-=dt;c.moving=false;continue;}this.vacate(c);c.idle=.4;continue;}
    if(c.path.length){this.step(c,dt,walkSpeed(c));continue;}
    c.idle-=dt;if(c.idle>0){c.moving=false;continue;}
    const n=this.nav.wanderTarget(c,{min:1.2,max:c.isPet&&c.kind==='tortoise'?2.5:7,rooms:this.random()<.6?HOME_ROOMS:null});

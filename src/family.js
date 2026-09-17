@@ -14,6 +14,8 @@ const geo={
 };
 const shadowMat=new THREE.MeshBasicMaterial({color:0x2a3128,transparent:true,opacity:.18,depthWrite:false});
 const black=colorMat('#1d1a18',.5),white=colorMat('#ffffff',.4),pink=colorMat('#ff9db2',.9);
+const steamMat=new THREE.MeshStandardMaterial({color:0xe6f2f7,roughness:.55,transparent:true,opacity:.94,depthWrite:false});
+const bubbleMat=new THREE.MeshStandardMaterial({color:0xffffff,roughness:.2,transparent:true,opacity:.75});
 
 // Each doll is only a few draw calls: every limb, the body and the head are
 // merged into one vertex-coloured mesh apiece, sharing a single material.
@@ -42,22 +44,33 @@ export function createDoll(c,{zombie=false}={}){
  const headPivot=pivot(0,1.14,0,merged(headParts));
  const eyes=[-.07,.07].map(x=>{const e=new THREE.Mesh(geo.eye,zombie?colorMat('#b71c1c',.4):black);e.position.set(x,.17,.165);if(zombie&&x>0)e.scale.setScalar(.7);headPivot.add(e);return e;});
  const bubble=createBubble();bubble.position.y=1.85;g.add(bubble);
+ // A frosted steam screen hides the body in the shower; the head stays visible.
+ const steam=new THREE.Mesh(new THREE.CylinderGeometry(.44,.4,1.12,20),steamMat);steam.position.y=.66;steam.visible=false;g.add(steam);
+ const bubbles=[0,1,2,3,4].map(i=>{const b=new THREE.Mesh(geo.eye,bubbleMat);b.scale.setScalar(1.4+i*.3);steam.add(b);b.position.y=.3+i*.2;return b;});
  let phase=Math.random()*6,t=0,blink=2+Math.random()*3;
  g.userData.update=(dt,state,moving,speed,options={})=>{
   t+=dt;blink-=dt;if(blink<-.12)blink=2+Math.random()*4;
-  const walkSpeed=moving?Math.max(.4,speed||.9):0;phase+=dt*walkSpeed*9;
-  const swing=moving?Math.sin(phase)*.65:0;
-  legs[0].rotation.x=swing;legs[1].rotation.x=-swing;
+  const pose=options.pose||null,sitting=pose==='sit',still=!!pose,walkSpeed=moving&&!still?Math.max(.4,speed||.9):0;phase+=dt*walkSpeed*9;
+  const swing=moving&&!still?Math.sin(phase)*.65:0;
+  legs[0].rotation.x=sitting?-1.3:swing;legs[1].rotation.x=sitting?-1.3:-swing;
+  const spread=pose==='exercise'?.28+Math.max(0,Math.sin(t*7))*.35:0;legs[0].rotation.z=spread;legs[1].rotation.z=-spread;
+  steam.visible=pose==='shower';if(steam.visible)for(const [i,b] of bubbles.entries()){b.position.y=.35+((t*.35+i*.23)%1)*1.1;b.position.x=Math.sin(t*2+i)*.32;b.position.z=Math.cos(t*1.7+i*2)*.32;}
   let armL=-swing*.8,armR=swing*.8,armZ=.12,bob=moving?Math.abs(Math.sin(phase))*.03:Math.sin(t*2)*.01,tilt=0,headY=0;
   if(state==='request'){const wave=Math.sin(t*11)*.35;armL=-.4;armR=-.4;armZ=2.55+wave;bob=Math.abs(Math.sin(t*6))*.05;}
   else if(state==='work'){armL=armR=-1.15+Math.sin(t*9)*.06;armZ=.35;}
+  else if(pose==='lie'){armL=armR=.15;armZ=.3;bob=Math.sin(t*1.6)*.012;}
+  else if(pose==='shower'){armL=-1.2+Math.sin(t*10)*.45;armR=-1.2-Math.sin(t*10)*.45;armZ=.55;bob=Math.abs(Math.sin(t*5))*.015;}
+  else if(pose==='exercise'){armL=armR=-.2;armZ=1.6+Math.sin(t*7)*1.35;bob=Math.max(0,Math.sin(t*7))*.14;}
+  else if(pose==='play'){armL=armR=-1.3+Math.sin(t*14)*.12;armZ=.3;bob=Math.abs(Math.sin(t*3))*.02;}
+  else if(pose==='sit'&&state==='happy'&&options.busy==='eating'){armL=armR=-1.0+Math.sin(t*5)*.15;armZ=.25;bob=Math.abs(Math.sin(t*5))*.02;}   // tucking in at the table
+  else if(pose==='sit'&&state!=='request'&&state!=='work'){armL=armR=-.55;armZ=.2;bob=0;}
   else if(state==='happy'){bob=Math.abs(Math.sin(t*10))*.14;armZ=1.2+Math.sin(t*10)*.5;armL=armR=-.3;}
   else if(state==='tickle'){tilt=Math.sin(t*22)*.14;armZ=1.6;armL=armR=.4;bob=Math.abs(Math.sin(t*16))*.05;}
   else if(state==='doomed'){tilt=Math.sin(t*35)*.05;armZ=2.3;armL=armR=-.9;}
   else if(zombie){armL=armR=-1.45+Math.sin(t*3)*.1;armZ=.15;headY=Math.sin(t*2.2)*.08;}
   arms[0].rotation.set(armL,0,armZ);arms[1].rotation.set(armR,0,-armZ);
   g.rotation.z=tilt;headPivot.rotation.set(headY,0,0);headPivot.position.y=1.14+bob;
-  const eyeScale=blink<0?.15:1;eyes[0].scale.y=eyeScale;eyes[1].scale.y=eyeScale*(zombie?.7:1);
+  const eyeScale=blink<0||pose==='lie'?.15:1;eyes[0].scale.y=eyeScale;eyes[1].scale.y=eyeScale*(zombie?.7:1);
   bubble.update(dt,options);
  };
  g.userData.bubble=bubble;

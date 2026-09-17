@@ -38,7 +38,8 @@ test('needs cost money, are served on arrival and heal, and prices rise every mi
  run(game,100);assert.equal(penny.state,'going','timers pause while walking');
  game.arrived(penny);
  assert.equal(penny.state,'happy');assert.equal(penny.health,60);assert.equal(game.served,1);
- run(game,2);assert.equal(penny.state,'wander');
+ run(game,2);assert.equal(penny.state,'happy','a meal at the table takes a while');
+ run(game,ZONES.table.stay);assert.equal(penny.state,'wander');
  game.elapsed=7*60;assert.equal(game.needCost(penny),10,'capped at $10');
  const pet=game.chars[3];assert.equal(game.needCost(pet),8);
  game.elapsed=90;assert.equal(game.needCost(pet),2);
@@ -83,13 +84,13 @@ test('working pays at the desk, halves need costs, earns raises and demands a br
  max.careerS=RULES.YEAR_EVERY*RULES.WORK_RAISE_YEARS-.05;run(game,.2);assert.equal(game.workPay(max),6);
  game.startRequest(max,NEEDS[0]);assert.ok(max.wasWorking);assert.equal(game.needCost(max),2.5);
  game.act(max,'serve');game.arrived(max);assert.equal(max.state,'happy');
- run(game,RULES.HAPPY_TIME+.1);assert.equal(max.state,'going');assert.deepEqual(events.go.at(-1),['Max','desk','resume']);
+ run(game,ZONES.table.stay+.1);assert.equal(max.state,'going');assert.deepEqual(events.go.at(-1),['Max','desk','resume']);
  const sessionBefore=max.workSession;game.arrived(max);assert.equal(max.state,'work');assert.equal(max.workSession,sessionBefore,'the shift clock continues after a snack');
  max.workSession=RULES.WORK_BREAK_AFTER-.05;run(game,.2);
  assert.equal(max.state,'request');assert.equal(max.need.id,'break');
  const serve=game.actionsFor(max).find(a=>a.id==='serve');assert.equal(serve.detail,'free');
  const before=game.money;game.act(max,'serve');assert.equal(game.money,before);assert.deepEqual(events.go.at(-1),['Max','sofa','break']);
- game.arrived(max);run(game,RULES.HAPPY_TIME+.1);assert.equal(max.state,'wander');assert.equal(max.wasWorking,false);
+ game.arrived(max);run(game,ZONES.sofa.stay+.1);assert.equal(max.state,'wander');assert.equal(max.wasWorking,false);
 });
 
 test('everyone ages a year every ten seconds, grows, and passes peacefully at 100',()=>{

@@ -8,6 +8,8 @@ Everything else is PennyGame: starting money, `$5` human needs and `$1` pet need
 
 The house keeps working while you play. Everything At Home lets you do is still here, through the same modules: put a record on the turntable (the hands place the vinyl and a gentle house melody plays when no music library is configured), close the curtains and watch the sky film on the window-lounge projector, light the hallway candle, tidy the shoes by the lobby bench, open the fridge, run the taps and the bath drain, turn on the stove, call the lift, and play the claw machine and the Deadpool pinball table. Leo, Cyrus and Pebble use At Home's roaming and filmed sprites, so they nap, groom, lounge belly-up, play together, and Leo fetches his bone when you pick it up and throw it. The family game pauses while a mini-game panel is open.
 
+People use the furniture rather than standing beside it. Workers sit on the office chairs (At Home's gaming chair now faces the dual-monitor desk, and two more chairs stand at the simulator desk), diners sit on the six dining chairs, breaks are taken on the orange sofa, the bathroom need uses the powder-room toilet, sleepers lie in the main bed or the second bedroom's bed, exercise happens on the meditation-alcove mats, play means the claw machine or pinball, and a bath is a shower in the glass cubicle behind a frosted steam screen. Every one of these stations is exclusive, so two people never share a chair or a bed, and a chair hemmed in by its neighbours is reached with a short sideways squeeze. Off-screen arrows say who needs what ("Go help · Penny is hungry · 12s · 7m").
+
 Two rules changed because the house is big:
 
 - Need timers pause while someone walks to a chore. The difficulty is finding people and budgeting, not sprinting across twenty metres of hallway.
@@ -49,6 +51,7 @@ Import the repository as a Vite project (`vercel.json` already sets the build co
 - `src/zones.js` — which room each need maps to, in the house's own plan coordinates.
 - `src/nav.js` — a 20 cm walking graph over the house with A* and path smoothing, built from the same colliders the player uses.
 - `src/agents.js` — moves family members and the zombie along the graph, with polite detours around each other and the player; pets are handed to At Home's roaming and only sent on errands.
+- `src/stations.js` — the chairs, sofa seats, toilet, beds, shower, games and mats people occupy, each exclusive, with the standing spots they are reached from.
 - `src/pet-roaming.js` — At Home's pet roaming, changed only to borrow the game's walking graph instead of resampling the house.
 - `src/family.js` — the 3D family dolls, need bubbles, floating text, hearts, ghosts and memorials.
 - `src/world.js` — the renderer, first-person movement and aiming, adapted from At Home's scene.
