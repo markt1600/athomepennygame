@@ -17,7 +17,7 @@ Two rules changed because the house is big:
 
 ## Controls
 
-Desktop: `WASD` or arrows walk, mouse looks, `Space` jumps small furniture, `E` or a click talks to the family member in front of you, number keys pick a menu option, `P` pauses, `Z` summons the zombie, `M` mutes, `Esc` opens the pause menu.
+Desktop: `WASD` or arrows walk, mouse looks, `Space` jumps small furniture, a click talks to the family member in front of you, number keys pick a menu option, `P` pauses, `X` toggles the autopilot, `Z` summons the zombie, `M` mutes, `Esc` opens the pause menu.
 
 Touch: At Home's controls. The left thumb stick walks, dragging anywhere else looks around, and tapping a family member, pet or fixture uses it. The Talk button acts on whatever is in front of you, and there are Pause and zombie buttons.
 
