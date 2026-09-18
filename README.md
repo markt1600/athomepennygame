@@ -21,6 +21,8 @@ Desktop: `WASD` or arrows walk, mouse looks, `Space` jumps small furniture, `E` 
 
 Touch: At Home's controls. The left thumb stick walks, dragging anywhere else looks around, and tapping a family member, pet or fixture uses it. The Talk button acts on whatever is in front of you, and there are Pause and zombie buttons.
 
+**Autopilot** (the 🤖 button in the top bar, the 🤖 touch button, or **X**) runs you round the house: it walks to whoever is asking for something, most urgent first, faces them and gives the order, puts idle adults to work when nobody needs anything, and skips anyone you cannot afford for a while. Any walk or stick input hands control back. Talking to someone is a click or a tap; the aim looks for the crown of the head first, so a worker hidden behind a chair back still lights up when their head shows.
+
 On a phone the layout is trimmed: a compact HUD, off-screen needs stacked in a tray under it (most urgent first) instead of floating around the edges, and the family roster behind the 👨‍👩‍👧‍👦 button in the HUD so the thumb stick and buttons stay clear.
 
 ## Frame rate

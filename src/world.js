@@ -138,14 +138,20 @@ export class World{
   const ray=new THREE.Raycaster();ray.setFromCamera(ndc,this.camera);let best=null,bestScore=.55;
   for(const [id,{c,group}] of this.characters){
    if(c.dead||c.state==='doomed')continue;
-   const centre=group.position.clone().add(new THREE.Vector3(0,(c.isPet?c.height*.5:.9*c.size),0)),distance=centre.distanceTo(this.camera.position);
-   if(distance>4.5)continue;
-   const miss=ray.ray.distanceToPoint(centre),radius=(c.isPet?.35:.45*c.size)+distance*.04;
-   if(miss>radius||miss/radius>=bestScore)continue;
-   if(this.occluded(centre,distance))continue;
-   best=id;bestScore=miss/radius;
+   for(const centre of this.aimPoints(c,group)){
+    const distance=centre.distanceTo(this.camera.position);
+    if(distance>4.5)continue;
+    const miss=ray.ray.distanceToPoint(centre),radius=(c.isPet?.35:.4*c.size)+distance*.04;
+    if(miss>radius||miss/radius>=bestScore)continue;
+    if(this.occluded(centre,distance))continue;
+    best=id;bestScore=miss/radius;break;
+   }
   }
   return best;
+ }
+ aimPoints(c,group){
+  if(c.isPet)return [group.position.clone().add(new THREE.Vector3(0,c.height*.5,0))];
+  return [1.48,1.3,.95,.55].map(h=>group.localToWorld(new THREE.Vector3(0,h,0)));   // crown, face, chest, lap; follows a seated or lying doll's rotation
  }
  occluded(point,distance){const d=point.clone().sub(this.camera.position).normalize();const ray=new THREE.Raycaster(this.camera.position,d,.05,Math.max(.06,distance-.25));return ray.intersectObject(this.houseRoot,true).some(hit=>!hit.object.material.transparent);}
  animate(){
@@ -195,11 +201,15 @@ export class World{
    const forward=this.camera.getWorldDirection(new THREE.Vector3());
    for(const [id,{c,group}] of this.characters){
     if(c.dead||c.state==='doomed')continue;
-    const top=c.isPet?c.height*.5:.95*c.size,centre=group.position.clone().add(new THREE.Vector3(0,top,0)),d=centre.clone().sub(cam),distance=d.length();
-    if(distance>3.6)continue;const aim=forward.dot(d.clone().normalize());
-    if(aim<.84||aim<=bestAim)continue;
-    if(this.occluded(centre,distance))continue;
-    nearest=id;bestAim=aim;
+    // The head, then the chest, then the lap: someone sitting at a desk is
+    // hidden behind the chair back from the waist down, but their head shows.
+    for(const point of this.aimPoints(c,group)){
+     const d=point.clone().sub(cam),distance=d.length();
+     if(distance>3.6)continue;const aim=forward.dot(d.normalize());
+     if(aim<.84||aim<=bestAim)continue;
+     if(this.occluded(point,distance))continue;
+     nearest=id;bestAim=aim;break;
+    }
    }
    // A fixture wins when the player is looking straight at it, even with a
    // family member or pet in the wider cone, so Leo cannot sit on his bone.

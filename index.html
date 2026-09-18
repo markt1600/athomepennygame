@@ -48,7 +48,7 @@
    <div class="stat" id="earned">$0<small>earned at desk</small></div>
    <div class="stat" id="cost">$5 / $1<small>need cost 👤/🐾</small></div>
    <div class="stat clockstat" id="clock">07:15<small>time at home</small></div>
-   <div class="hud-buttons"><button class="cornerBtn" id="rosterBtn" title="the family" aria-controls="roster">👨‍👩‍👧‍👦</button><button class="cornerBtn" data-mute title="toggle sound (M)">🔊</button><button class="cornerBtn" id="pauseBtn" title="pause (P)">⏸️</button></div>
+   <div class="hud-buttons"><button class="cornerBtn" id="autoBtn" title="autopilot: run round and sort everyone out (X)">🤖</button><button class="cornerBtn" id="rosterBtn" title="the family" aria-controls="roster">👨‍👩‍👧‍👦</button><button class="cornerBtn" data-mute title="toggle sound (M)">🔊</button><button class="cornerBtn" id="pauseBtn" title="pause (P)">⏸️</button></div>
   </header>
   <aside id="roster" hidden aria-label="Family status"><h3>👨‍👩‍👧‍👦 The family</h3><ol></ol><p class="fine">Timers pause while someone walks to a chore. The house keeps working while you play.</p></aside>
   <div id="markers" aria-hidden="true"></div>
@@ -56,7 +56,7 @@
   <div id="log" role="status" aria-live="polite"></div>
   <div id="controls" class="controls"></div>
   <div class="touch-walk"><div class="touch-stick"><div class="touch-knob"></div><small>walk</small></div></div>
-  <div class="touch-actions"><button id="touch-interact">Talk</button><button id="touch-zombie">🧟</button><button id="touch-pause">Pause</button></div>
+  <div class="touch-actions"><button id="touch-interact">Talk</button><button id="touch-auto" title="autopilot">🤖</button><button id="touch-zombie">🧟</button><button id="touch-pause">Pause</button></div>
 
   <section id="setup" class="overlay" aria-label="New game">
    <h1>At Home <span class="heart">♥</span> Keep Them Alive!</h1>
@@ -69,13 +69,14 @@
    <div id="famPreview"></div>
    <div class="ovRow">
     <div class="rules">
-     💬 When someone needs something they <b>wave their arms</b> and a bubble counts down <b>45s</b>. Walk up to them, press <b>E</b> (or tap) and <b>send them to the right room</b>: the dining table, the powder room, a bed, the bath, the games corner, the meditation alcove… The roster on the right tells you <b>which room they are in</b>.<br>
+     💬 When someone needs something they <b>wave their arms</b> and a bubble counts down <b>45s</b>. Walk up to them, <b>click</b> (or tap) and <b>send them to the right room</b>: the dining table, the powder room, a bed, the bath, the games corner, the meditation alcove… The roster on the right tells you <b>which room they are in</b>.<br>
      💸 Human needs cost <b>$5</b>, pet needs <b>$1</b>, rising <b>+$1 every minute</b> (capped at $10). Miss 2 needs → they die 💀. Timers pause while they walk.<br>
      🎂 Everyone <b>ages 1 year every 10s</b>. At 100 they pass away peacefully 😇.<br>
      💼 Send anyone <b>aged 12–60</b> to the <b>home office desk</b>: every <b>10s</b> earns <b>$5</b>. Workers pay <b>50%</b> for their needs, get a <b>$1 raise</b> every 5 years worked, and walk back to the desk on their own after a snack. After <b>60s</b> they need a break on the sofa ☕.<br>
      🐾 Pets only need <b>food</b> (kitchen bowls) and <b>exercise</b> (balcony). Leo, Cyrus and Pebble otherwise live their own lives: napping, grooming, playing together. Throw Leo's bone for fetch. 🤭 Talk to anyone with no needs to tickle them.<br>
      🏠 The house still works: play a record, watch a movie in the window lounge, light the hallway candle, tidy the shoes, open the fridge, run the taps and the stove, call the lift, and try the claw machine and pinball.<br>
      🧟 Press <b>Z</b> if you dare… a zombie comes through the front door. You have <b>10s</b> to offer someone — or it picks!<br>
+     🤖 <b>Autopilot</b> (the robot button, or <b>X</b>) runs you round the house sorting everyone out and puts idle adults to work; walk to take back control.<br>
      ⭐ <b>Score</b>: every second alive earns 1 point per living family member. <b>P</b> pauses.
     </div>
     <div class="board" id="setupBoard"><h3>🏆 Hall of Fame</h3><ol></ol><div class="src"></div></div>
@@ -97,7 +98,7 @@
    <h2>⏸️ PAUSED</h2>
    <div class="hintTxt">The family is frozen in time… take a breath ☕</div>
    <button class="bigbtn" id="resumeBtn">▶️ Resume</button>
-   <div class="hintTxt">WASD · mouse · <b>E</b> talk · <b>P</b> pause · <b>Z</b> zombie · <b>M</b> mute</div>
+   <div class="hintTxt">WASD · mouse · click to talk · <b>P</b> pause · <b>X</b> autopilot · <b>Z</b> zombie · <b>M</b> mute</div>
    <div class="row"><button class="smallbtn" data-mute>🔊</button><button class="smallbtn danger" id="quitBtn">Give up · new game</button></div>
   </section>
 
