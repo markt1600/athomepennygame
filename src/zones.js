@@ -6,15 +6,15 @@ import {planPoint} from './house/house-layout.js';
 const zone=(id,label,emoji,plan,room,{radius=1.5,seats=6,hint,stay,busy}={})=>({id,label,emoji,plan,room,radius,seats,hint,stay,busy,position:planPoint(...plan)});
 export const ZONES={
  table: zone('table','dining table','🍽️',[416,802],'dining',{radius:1.7,hint:'in the dining room',stay:7,busy:'eating'}),
- toilet:zone('toilet','powder room','🚽',[385,440],'powder',{radius:1.4,seats:2,hint:'off the hallway',stay:4,busy:'on the toilet'}),
+ toilet:zone('toilet','nearest bathroom','🚽',[385,440],'powder',{radius:1.4,seats:3,hint:'the powder room or either bathroom',stay:4,busy:'on the toilet'}),
  bed:   zone('bed','main bedroom bed','🛏️',[650,331],'bedroom',{radius:1.6,seats:3,hint:'in the main bedroom',stay:6,busy:'napping'}),
  kidbed:zone('kidbed','second bedroom bed','🛏️',[980,400],'guest',{radius:1.8,seats:3,hint:'in the second bedroom',stay:6,busy:'napping'}),
  mat:   zone('mat','meditation alcove','🧘',[563,228],'meditation',{radius:1.5,seats:3,hint:'past the main bedroom',stay:6,busy:'exercising'}),
  walk:  zone('walk','living balcony','🌿',[262,620],'balcony',{radius:1.8,seats:4,hint:'through the living room sliders'}),
- tv:    zone('tv','games corner','🎮',[470,445],'passage',{radius:1.6,seats:4,hint:'by the claw machine',stay:6,busy:'playing'}),
- tub:   zone('tub','main bathroom','🛁',[905,215],'bath',{radius:1.6,seats:2,hint:'past the vanity',stay:7,busy:'showering'}),
+ tv:    zone('tv','window lounge','🎮',[380,318],'theatre',{radius:1.6,seats:2,hint:'the movie room past the entrance hall',stay:8,busy:'playing'}),
+ tub:   zone('tub','nearest shower','🛁',[905,215],'bath',{radius:1.6,seats:3,hint:'any of the three bathrooms',stay:7,busy:'showering'}),
  desk:  zone('desk','home office desk','💼',[890,585],'study',{radius:1.7,seats:4,hint:'in the home office'}),
- bowls: zone('bowls','kitchen pet bowls','🥣',[592,782],'kitchen',{radius:1.6,seats:3,hint:'in the kitchen'}),
+ bowls: zone('bowls','kitchen pet bowls','🥣',[592,782],'kitchen',{radius:1.6,seats:3,hint:'in the kitchen',stay:5,busy:'eating'}),
  sofa:  zone('sofa','living room sofa','☕',[430,620],'living',{radius:1.8,seats:6,hint:'in the sunken living room',stay:5,busy:'resting'}),
 };
 

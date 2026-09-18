@@ -7,6 +7,7 @@ import {ZONES,zoneForNeed} from './zones.js';
 import {roomAt} from './nav.js';
 import {stationPose} from './stations.js';
 import {createDoll,createBubble,Effects} from './family.js';
+import {Props} from './props.js';
 import {installTouchStick} from './house/touch-controls.js';
 import {hasTouchInput,installGameViewport,viewportBounds} from './house/game-viewport.js';
 import {pickTouchInteraction} from './house/touch-targets.js';
@@ -47,6 +48,7 @@ const markers=new Map();
 let game=null,agents=null;   // assigned below; the world starts its frame loop immediately
 const world=new World($('#scene'),{onTick:tick,onLook:updateLookHint,onStatus:updateLoading});
 const effects=new Effects(world.scene);
+const props=new Props(world);
 const sound=new HomeSound();
 const recordPlayer=new RecordPlayer(sound,{onChange:spinning=>{world.recordPlaying=spinning;updateLookHint(world.lookTarget);},onMessage:toast,onStart:()=>world.turntable.start(),beforePlay:()=>world.turntable.ready(),onStop:()=>world.turntable.stop()});
 game=new Game({hooks:{
@@ -57,7 +59,7 @@ game=new Game({hooks:{
  go:(c,zone,purpose)=>agents.go(c,zone,purpose),
  stop:c=>agents.stop(c),
  died:c=>{agents.remove(c);const entry=world.characters.get(c.id);if(entry){entry.group.visible=false;}effects.add('ghost',new THREE.Vector3(c.x,c.y+.6,c.z));effects.memorial(new THREE.Vector3(c.x,c.y,c.z),c.name);if(commandFor===c.id)closeCommand();},
- over:result=>{lastResult=result;setTimeout(showGameOver,1800);},
+ over:result=>{lastResult=result;setTimeout(showGameOver,result.reason==='ended'?0:1800);},
  zombie:(kind,z)=>{agents.zombieEvent(kind,z);if(kind==='enter'){zombieDoll=createDoll({name:'Zombie'},{zombie:true});zombieDoll.scale.setScalar(1.05);world.scene.add(zombieDoll);}if(kind==='gone'&&zombieDoll){world.scene.remove(zombieDoll);zombieDoll=null;}if(kind==='hunt'&&commandFor===z.victim?.id)closeCommand();},
  broke:()=>flash($('#money'),'flash-red'),
 }});
@@ -91,8 +93,9 @@ function tick(dt,active){
  const running=game.running&&!world.paused;
  if(running){game.update(dt);agents.player=world.feetPosition;agents.update(dt);world.hours=game.hours;sound.update(dt,game.hours,world.room.includes('balcony'));autopilot.update(dt);}
  else if(!game.running)world.hours+=dt/40;
- world.powderDoor.update(dt,agents.occupied.get('toilet-0')?.station?.id==='toilet-0',world.feetPosition);
+ for(const door of world.doors)door.update(dt,door.stations.some(id=>agents.occupied.get(id)?.station?.id===id),world.feetPosition);
  syncVisuals(running?dt:0);
+ props.update(running?dt:0,game.running?game.chars:[]);
  effects.update(running?dt:0);
  if(game.running||lastResult){hudTimer+=dt;rosterTimer+=dt;if(hudTimer>.1){hudTimer=0;updateHUD();}if(rosterTimer>.25){rosterTimer=0;updateRoster();}updateMarkers();}
  stats.tickMs+=(performance.now()-started-stats.tickMs)*.05;stats.frameMs+=(dt*1000-stats.frameMs)*.05;stats.frames++;
@@ -375,7 +378,7 @@ function showSetup(){
 function startGame(){
  if(!world.artwork.ready)return;
  closeCommand();closeMiniGame();stopCinema();recordPlayer.stop();
- autopilot.toggle(false,true);world.clearCharacters();world.resetHouse();effects.clear();if(zombieDoll){world.scene.remove(zombieDoll);zombieDoll=null;}
+ autopilot.toggle(false,true);props.clear();world.clearCharacters();world.resetHouse();effects.clear();if(zombieDoll){world.scene.remove(zombieDoll);zombieDoll=null;}
  for(const el of markers.values())el.remove();markers.clear();
  lastResult=null;scoreSaved=false;
  game.start({familySize,petCount});
@@ -395,8 +398,8 @@ function startGame(){
 function showGameOver(){
  const r=lastResult;if(!r)return;
  const isNewBest=r.score>bestScore;if(isNewBest){bestScore=r.score;localStorage.setItem(LS_BEST,String(bestScore));}
- $('#goTitle').textContent='💀 The whole family is gone...';$('#newHigh').hidden=!isNewBest;
- $('#goStats').innerHTML=`⭐ Final score: <b>${r.score}</b> (best: ${bestScore})<br>You survived <b>${r.time}</b><br>Requests served: <b>${r.served}</b><br>Earned at the desk: <b>${fmt$(r.earned)}</b><br>Money left: <b>${fmt$(r.money)}</b>`;
+ $('#goTitle').textContent=r.reason==='ended'?'🏁 Game over, your call':'💀 The whole family is gone...';$('#newHigh').hidden=!isNewBest;
+ $('#goStats').innerHTML=`⭐ Final score: <b>${r.score}</b> (best: ${bestScore})<br>You ${r.reason==='ended'?'played for':'survived'} <b>${r.time}</b><br>Family: <b>${r.alive} of ${r.family}</b> alive${r.pets?`, pets <b>${r.petsAlive} of ${r.pets}</b>`:''}${r.oldest?`<br>Oldest: <b>${r.oldest}</b> years`:''}<br>Requests served: <b>${r.served}</b><br>Earned at the desk: <b>${fmt$(r.earned)}</b><br>Money left: <b>${fmt$(r.money)}</b>`;
  const saveBtn=$('#saveScoreBtn');saveBtn.disabled=false;saveBtn.textContent='Save score 🏆';$('#nameInput').value=localStorage.getItem(LS_NAME)||'';
  closeCommand();closeMiniGame();world.paused=true;world.unlock();document.body.classList.remove('playing');
  $('#gameover').classList.add('show');refreshBoards();
@@ -437,6 +440,7 @@ $('#startBtn').onclick=startGame;
 $('#restartBtn').onclick=showSetup;
 $('#resumeBtn').onclick=resume;
 $('#quitBtn').onclick=()=>{game.running=false;stopCinema();recordPlayer.stop();showSetup();};
+$('#endBtn').onclick=()=>{if(!game.running)return;$('#paused').classList.remove('show');autopilot.toggle(false,true);stopCinema();game.endGame('ended');};
 $('#pauseBtn').onclick=()=>world.paused&&$('#paused').classList.contains('show')?resume():showPause();
 $('#touch-pause').onclick=()=>showPause();
 $('#autoBtn').onclick=()=>{if(game.running)autopilot.toggle();};
@@ -458,7 +462,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden&&game.runni
 
 stat('best',bestScore);
 refreshBoards();
-window.pennyGame={game,world,agents,autopilot,startGame,openCommand,ZONES,stats,recordPlayer,startCinema,stopCinema,THREE};   // handy for tinkering and smoke tests
+window.pennyGame={game,world,agents,autopilot,props,startGame,openCommand,ZONES,stats,recordPlayer,startCinema,stopCinema,THREE};   // handy for tinkering and smoke tests
 if(document.fonts?.load)['700 16px "Baloo 2"','800 20px "Baloo 2"'].forEach(f=>document.fonts.load(f).catch(()=>{}));
 document.documentElement.removeAttribute('data-starting');
 $('#setup').classList.add('show');

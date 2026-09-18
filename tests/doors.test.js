@@ -1,12 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createHouseModel} from '../scripts/house-model.mjs';
-import {DOOR_OPEN} from '../src/powder-door.js';
+import {DOORS} from '../src/doors.js';
 import {planPoint} from '../src/house/house-layout.js';
 import {inWalkableArea,intersectsFootprint} from '../src/house/navigation.js';
 
 const world=createHouseModel({optimize:false});
-const door=world.powderDoor,doorway=planPoint(415,433),[dx,dz]=doorway;
+const door=world.powderDoor,DOOR_OPEN=door.openAngle,doorway=planPoint(415,433),[dx,dz]=doorway;
 const blocked=(x,z)=>intersectsFootprint(x,z,door.collider);
 
 test('the powder-room door starts open against the wall and leaves the doorway clear',()=>{
@@ -31,4 +31,17 @@ test('the door waits while the player is standing in the doorway, and resets ope
  door.update(.1,true,{x:dx+.2,z:dz});assert.equal(door.angle,DOOR_OPEN,'held open for the player');
  door.update(.1,true,{x:dx+3,z:dz});assert.ok(door.angle<DOOR_OPEN,'closes once they have moved on');
  door.reset();assert.equal(door.angle,DOOR_OPEN);assert.equal(door.target,DOOR_OPEN);
+});
+
+test('the main and second bathrooms have doors too, open against a wall and clear of their doorways',()=>{
+ assert.equal(world.doors.length,3);assert.deepEqual(world.doors.map(d=>d.id),['powder','bath','guest-bath']);
+ for(const [i,d] of world.doors.entries()){
+  const spec=DOORS[i],[ox,oz]=planPoint(...spec.opening),[nx,nz]=spec.n;
+  assert.equal(d.angle,d.openAngle);
+  for(const t of [-.15,0,.15])assert.ok(inWalkableArea(ox+spec.u[0]*t+nx*.05,oz+spec.u[1]*t+nz*.05,true,world.colliders),`${d.id} doorway clear at ${t}`);
+  assert.ok(inWalkableArea(ox+nx*.6,oz+nz*.6,true,world.colliders),`${d.id}: the way into the room is clear of the open leaf`);
+  for(let k=0;k<25;k++)d.update(.1,true);
+  assert.ok(d.shut);assert.ok(!inWalkableArea(ox+nx*.08,oz+nz*.08,true,world.colliders),`${d.id} shut blocks the doorway`);
+  d.reset();assert.ok(!d.shut);
+ }
 });

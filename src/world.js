@@ -31,7 +31,7 @@ import {NavGraph} from './nav.js';
 import {PetRoaming} from './pet-roaming.js';
 import {PetSocial} from './house/pet-social.js';
 import {buildStations} from './stations.js';
-import {buildPowderDoor} from './powder-door.js';
+import {buildDoors} from './doors.js';
 
 // The At Home house with its light, balcony life, fixtures, hands, pets and
 // mini-games, plus a first-person player. Family members are registered as
@@ -46,7 +46,7 @@ export class World{
   this.renderQuality=new AdaptiveResolution(this.renderer.getPixelRatio());
   Object.assign(this,{materials:{},colliders:[],targets:[],keys:{},mode:'menu',paused:false,motion:true,yaw:0,pitch:0,elapsed:0,hours:7.25,room:'hall',walking:false,telescope:{active:false},characters:new Map(),actors:new Map(),touchMove:{x:0,z:0},lookTarget:null,recordPlaying:false});
   this.handInteraction=new HandInteractionBody(this);
-  buildHouse(this);buildPowderDoor(this);this.targets=[];optimizeHouse(this);this.cinema.installRoomDimming();this.cinema.memoryMode=false;this.flashlight.visible=false;
+  buildHouse(this);buildDoors(this);this.targets=[];optimizeHouse(this);this.cinema.installRoomDimming();this.cinema.memoryMode=false;this.flashlight.visible=false;
   this.daylight=new Daylight(this);this.reflections=new HouseReflections(this);this.door.rotation.y=-1.45;
   buildStations(this);this.nav=new NavGraph(this.colliders);
   this.petRoaming=new PetRoaming(this.colliders,Math.random,this.nav);this.petBone=installPetBone(this);
@@ -123,7 +123,7 @@ export class World{
  clearCharacters(){for(const id of [...this.characters.keys()])this.removeCharacter(id);this.actors.clear();this.petRoaming.pets.clear();this.petSocial.reset();}
  // Fixtures, hands and toys return to their opening state for a new game.
  resetHouse(){
-  this.handInteraction.cancel();this.powderDoor.reset();this.movableFurniture.reset();this.shoeTidy.reset();this.clawGame.reset();this.pinballGame.reset();this.kitchenStove.setRunning(false);this.turntable.reset();this.hallwayCandle.reset();this.recordPlaying=false;
+  this.handInteraction.cancel();for(const door of this.doors)door.reset();this.movableFurniture.reset();this.shoeTidy.reset();this.clawGame.reset();this.pinballGame.reset();this.kitchenStove.setRunning(false);this.turntable.reset();this.hallwayCandle.reset();this.recordPlaying=false;
   if(this.cinema.active)this.cinema.leave();
  }
  focus(id){this.handInteraction?.cancel();const p=HOUSE_VIEWS[id]||HOUSE_VIEWS.hall;this.camera.position.set(...p.slice(0,3));this.yaw=p[3];this.pitch=p[4];this.camera.rotation.set(this.pitch,this.yaw,0,'YXZ');this.room=id;this.keys={};this.eyeHeight=1.67;this.feet={x:this.camera.position.x,y:floorHeight(this.camera.position.x,this.camera.position.z),z:this.camera.position.z,vy:0,grounded:true};this.jumpQueued=false;}
