@@ -1,3 +1,4 @@
+import {createPiAutoplay} from './pi-mode.js';
 import './style.css';
 import * as THREE from 'three';
 import {World} from './world.js';
@@ -22,6 +23,8 @@ import {fetchBoard,submitScore,renderBoard,LS_BEST,LS_NAME} from './leaderboard.
 import {PETS} from './house/life.js';
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const piMode=new URLSearchParams(location.search).get('pi')==='1';
+if(piMode){document.documentElement.classList.add('pi-display');setMuted(true);}
 installGameViewport();
 const touchMode=()=>hasTouchInput()||document.documentElement.classList.contains('touch-device');
 // A phone: a touch screen with little room. The HUD shrinks, off-screen needs
@@ -80,8 +83,9 @@ world.onCinemaPlay=()=>world.cinema.active?stopCinema():startCinema();
 world.onHandRecordCancel=()=>recordPlayer.stop();
 world.onBoneChange=()=>{};
 const LS_QUALITY='athome_penny_quality';
-const liteRequested=new URLSearchParams(location.search).get('lite')==='1'||localStorage.getItem(LS_QUALITY)==='low';
+const liteRequested=piMode||new URLSearchParams(location.search).get('lite')==='1'||localStorage.getItem(LS_QUALITY)==='low';
 if(liteRequested)world.setQuality('low');
+if(piMode){world.maxFps=30;world.lock=()=>{};world.renderQuality.max=.8;world.renderQuality.min=.6;world.renderQuality.ratio=.8;world.renderer.setPixelRatio(.8);world.viewportDirty=true;}
 $('#liteMode').checked=world.quality==='low';
 $('#liteMode').onchange=e=>{world.setQuality(e.target.checked?'low':'high');try{localStorage.setItem(LS_QUALITY,world.quality);}catch{}};
 world.onQuality=level=>{$('#liteMode').checked=level==='low';if(level==='low')toast('Switched to performance mode to keep the frame rate up (mirrors off, lighter shadows). Change it on the start screen.');};
@@ -396,6 +400,7 @@ function startGame(){
  world.lock();world.petRoaming.greet(world.camera.position,world.yaw);
 }
 function showGameOver(){
+ if(piMode)return;
  const r=lastResult;if(!r)return;
  const isNewBest=r.score>bestScore;if(isNewBest){bestScore=r.score;localStorage.setItem(LS_BEST,String(bestScore));}
  $('#goTitle').textContent=r.reason==='ended'?'🏁 Game over, your call':'💀 The whole family is gone...';$('#newHigh').hidden=!isNewBest;
@@ -466,3 +471,19 @@ window.pennyGame={game,world,agents,autopilot,props,startGame,openCommand,ZONES,
 if(document.fonts?.load)['700 16px "Baloo 2"','800 20px "Baloo 2"'].forEach(f=>document.fonts.load(f).catch(()=>{}));
 document.documentElement.removeAttribute('data-starting');
 $('#setup').classList.add('show');
+
+if(piMode){
+ applyMute();
+ const keepPlaying=createPiAutoplay({ready:()=>world.artwork.ready,running:()=>game.running,start:startGame,
+  resume:()=>{world.paused=false;$('#paused').classList.remove('show');},
+  auto:()=>{if(!autopilot.on)autopilot.toggle(true,true);},
+  retry:()=>{if(!world.artwork.loading)world.loadArtwork();}});
+ const piTimer=setInterval(()=>keepPlaying(Date.now()),1000);
+ window.addEventListener('pagehide',()=>clearInterval(piTimer),{once:true});
+ window.addEventListener('message',event=>{
+  if(event.origin!=='https://pi.marktan.ai'||event.source!==window.parent)return;
+  if(event.data?.type==='pi-game-sound'&&typeof event.data.muted==='boolean'){setMuted(event.data.muted);applyMute();if(!isMuted())sound.start().catch(()=>{});}
+  if(event.data?.type==='pi-game-restart'){startGame();autopilot.toggle(true,true);}
+ });
+ window.parent.postMessage({type:'pi-game-ready'},'https://pi.marktan.ai');
+}

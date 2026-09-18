@@ -66,3 +66,6 @@ Import the repository as a Vite project (`vercel.json` already sets the build co
 - `api/leaderboard.js` — the Upstash-backed global top ten from PennyGame.
 
 The house geometry, artwork and pet films are the same authored, non-identifying assets that At Home publishes: dimensions and furniture, no address or photographs.
+
+## Pi spectator mode
+Open `/?pi=1&lite=1` to load the house, start the default family game, keep autopilot enabled and restart ten seconds after game over. Pi mode is muted initially, uses low graphics quality with a 30 FPS cap and a compact HUD, and does not request pointer lock or submit scores. The parent at `https://pi.marktan.ai` may send `pi-game-sound` (boolean `muted`) or `pi-game-restart` messages; all other message origins are ignored. Normal game play is unchanged.

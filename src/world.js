@@ -155,7 +155,9 @@ export class World{
  }
  occluded(point,distance){const d=point.clone().sub(this.camera.position).normalize();const ray=new THREE.Raycaster(this.camera.position,d,.05,Math.max(.06,distance-.25));return ray.intersectObject(this.houseRoot,true).some(hit=>!hit.object.material.transparent);}
  animate(){
-  requestAnimationFrame(()=>this.animate());const frameSeconds=this.clock.getDelta(),dt=Math.min(frameSeconds,.05);
+  requestAnimationFrame(()=>this.animate());
+  if(this.maxFps){const now=performance.now();if(now-(this.lastDisplayFrame||0)<1000/this.maxFps)return;this.lastDisplayFrame=now;}
+  const frameSeconds=this.clock.getDelta(),dt=Math.min(frameSeconds,.05);
   if(document.hidden||this.contextLost||this.preparingRenderer){this.renderQuality.reset();return;}
   const ratio=this.renderQuality.update(frameSeconds,this.mode==='play'&&!this.paused&&this.artwork.ready&&!this.viewportDirty);
   if(ratio!==undefined){this.renderer.setPixelRatio(ratio);this.viewportDirty=true;}

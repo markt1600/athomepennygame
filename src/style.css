@@ -136,3 +136,9 @@ html.phone #log{top:42%;bottom:auto;font-size:12px;max-width:min(360px,72vw);pad
 html.phone #toast{bottom:auto;top:36%;font-size:13px;padding:9px 14px}
 html.phone .touch-stick{width:118px;height:118px}
 html.phone .touch-actions button{min-width:70px;min-height:44px;padding:8px 10px;font-size:14px}
+
+/* Embedded Pi spectator view: keep the house and compact score HUD visible. */
+.pi-display #roster,.pi-display #controls,.pi-display .touch-walk,.pi-display .touch-actions,.pi-display .hud-buttons,.pi-display #log { display:none!important; }
+.pi-display #scene { pointer-events:none; }
+.pi-display #hud { left:6px; right:6px; top:6px; max-width:none; padding:5px 8px; font-size:11px; }
+.pi-display #hud .stat { font-size:11px; }
