@@ -87,7 +87,7 @@ function tick(dt,active){
  if(!game)return;
  const started=performance.now();
  const running=game.running&&!world.paused;
- if(running){game.update(dt);agents.player=world.feetPosition;agents.update(dt);world.hours=game.hours;sound.update(dt,game.hours,world.room.includes('balcony'));}
+ if(running){game.update(dt);agents.player=world.feetPosition;agents.update(dt);world.hours=game.hours;sound.update(dt,game.hours,world.room.includes('balcony'));autopilot.update(dt);}
  else if(!game.running)world.hours+=dt/40;
  world.powderDoor.update(dt,agents.occupied.get('toilet-0')?.station?.id==='toilet-0',world.feetPosition);
  syncVisuals(running?dt:0);
@@ -194,13 +194,84 @@ function updateMarkers(){
 }
 function updateLookHint(id){
  const el=$('#look-hint');if(!el)return;
- const c=id&&game?.chars.find(c=>c.id===id);const key=touchMode()?'Tap':'Click or E';
+ const c=id&&game?.chars.find(c=>c.id===id);const key=touchMode()?'Tap':'Click';
  const fixture=id&&world.houseInteractions.label(id);
  el.textContent=c&&!c.dead?`${key} · talk to ${c.name}`:fixture?`${key} · ${fixture}`:id==='turntable'?`${key} · ${recordPlayer.enabled?(world.turntable.busy?world.turntable.label:'Stop the record'):'Play the record'}`:'';
 }
 function flash(el,cls){if(!el)return;el.classList.remove(cls);void el.offsetWidth;el.classList.add(cls);}
 function logMsg(msg,color){const el=$('#log');el.textContent=msg;el.style.color=color||'';el.classList.add('show');clearTimeout(logTimer);logTimer=setTimeout(()=>el.classList.remove('show'),isPhone()?4200:6000);}
 function toast(msg){const el=$('#toast');el.textContent=msg;el.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>el.classList.remove('show'),3800);}
+
+// ---- autopilot: runs round the house sorting everyone out ------------------
+// Walks the player along the navigation graph to whoever is asking for
+// something (most urgent first), faces them and gives the order, and puts
+// idle adults to work when nobody needs anything. Any walk or stick input
+// hands control back.
+const autopilot={on:false,target:null,action:null,path:[],spots:[],spotIndex:0,wait:0,faceT:0,retry:new Map(),
+ toggle(force,quiet=false){
+  this.on=force??!this.on;this.target=null;this.path=[];this.wait=0;
+  $('#autoBtn').classList.toggle('on',this.on);$('#touch-auto').classList.toggle('on',this.on);
+  if(!quiet)toast(this.on?'🤖 Autopilot on: I will run round and sort everyone out. Walk or use the stick to take over.':'🤖 Autopilot off, you have the controls.');
+ },
+ pick(){
+  const now=game.elapsed,feet=world.feetPosition,near=c=>Math.hypot(c.x-feet.x,c.z-feet.z),fresh=c=>(this.retry.get(c.id)||0)<=now;
+  const needs=game.chars.filter(c=>!c.dead&&c.state==='request'&&c.need&&fresh(c)).sort((a,b)=>a.reqT-b.reqT);
+  if(needs.length)return {c:needs[0],action:'serve'};
+  const workers=game.chars.filter(c=>!c.dead&&(c.state==='work'||c.destination?.purpose==='work'||c.destination?.purpose==='resume')).length;
+  if(workers<2){const idle=game.chars.filter(c=>!c.dead&&!c.isPet&&c.state==='wander'&&c.age>=12&&c.age<=60&&fresh(c)).sort((a,b)=>near(a)-near(b));if(idle.length)return {c:idle[0],action:'work'};}
+  return null;
+ },
+ route(c){
+  const feet=world.feetPosition;
+  this.spots=world.nav.nearestNodes(c.x,c.z,{count:12,maxDist:1.4,exclude:n=>Math.hypot(n.x-c.x,n.z-c.z)<.7}).sort((a,b)=>Math.hypot(a.x-feet.x,a.z-feet.z)-Math.hypot(b.x-feet.x,b.z-feet.z));
+  this.spotIndex=0;return this.routeToSpot();
+ },
+ routeToSpot(){
+  const feet=world.feetPosition;
+  while(this.spotIndex<this.spots.length){
+   const path=world.nav.route({x:feet.x,z:feet.z},this.spots[this.spotIndex++],{smooth:true});
+   if(path){this.path=path;this.faceT=0;return true;}
+  }
+  this.path=[];return false;
+ },
+ turn(dt,desiredYaw,desiredPitch=0,rate=7){
+  let d=desiredYaw-world.yaw;d=Math.atan2(Math.sin(d),Math.cos(d));const k=Math.min(1,dt*rate);
+  world.yaw+=d*k;world.pitch+=(desiredPitch-world.pitch)*k;return Math.abs(d)<.12;
+ },
+ update(dt){
+  if(!this.on||commandFor||miniGame||world.handInteraction.active)return;
+  if(Object.values(world.keys).some(Boolean)||world.touchMove.x||world.touchMove.z){this.toggle(false);return;}
+  if(this.wait>0){this.wait-=dt;return;}
+  const goal=this.pick();
+  if(!goal){this.target=null;this.path=[];return;}
+  const c=goal.c;
+  if(this.target!==c.id){this.target=c.id;this.action=goal.action;this.anchor={x:c.x,z:c.z};if(!this.route(c)){this.retry.set(c.id,game.elapsed+4);this.target=null;this.wait=.5;return;}}
+  if(Math.hypot(c.x-this.anchor.x,c.z-this.anchor.z)>.9){this.anchor={x:c.x,z:c.z};this.route(c);}   // they moved on
+  const feet=world.feetPosition,cam=world.camera.position;
+  const dist=Math.hypot(c.x-feet.x,c.z-feet.z),level=Math.abs(c.y-feet.y)<.7;
+  if(!this.path.length||dist<1.15&&level){
+   // Close enough: face them and give the order once the aim settles on them.
+   const headY=(world.characters.get(c.id)?.group.position.y??c.y)+(c.isPet?c.height*.6:1.25*c.size);
+   const facing=this.turn(dt,Math.atan2(-(c.x-cam.x),-(c.z-cam.z)),Math.atan2(headY-cam.y,Math.hypot(c.x-cam.x,c.z-cam.z)),9);
+   this.faceT+=dt;
+   if(facing&&world.lookTarget===c.id){
+    const a=game.actionsFor(c).find(a=>a.id===this.action);
+    if(a&&!a.disabled){const r=game.act(c,a.id);if(r.ok)logMsg('🤖 '+a.label,'#1565c0');else toast(r.message);}
+    this.retry.set(c.id,game.elapsed+(a&&!a.disabled?2:8));this.target=null;this.wait=.35;return;
+   }
+   if(this.faceT>1.6){   // still not aimed at them: try the next standing spot, or give up for a while
+    if(!this.routeToSpot()){this.retry.set(c.id,game.elapsed+6);this.target=null;}
+   }
+   return;
+  }
+  // Follow the path: the player runs a little faster than the family walks.
+  const next=this.path[0],dx=next.x-feet.x,dz=next.z-feet.z,d=Math.hypot(dx,dz),step=Math.min(d,2.6*dt);
+  if(d<.05){this.path.shift();return;}
+  const x=feet.x+dx/d*step,z=feet.z+dz/d*step,y=next.y;
+  world.feet={x,y,z,vy:0,grounded:true};cam.x=x;cam.z=z;world.eyeHeight=1.67;world.walking=true;
+  this.turn(dt,Math.atan2(-dx,-dz),-.06);
+ },
+};
 
 // ---- talking to the family, using the house --------------------------------
 function interact(){
@@ -278,7 +349,7 @@ function showSetup(){
 function startGame(){
  if(!world.artwork.ready)return;
  closeCommand();closeMiniGame();stopCinema();recordPlayer.stop();
- world.clearCharacters();world.resetHouse();effects.clear();if(zombieDoll){world.scene.remove(zombieDoll);zombieDoll=null;}
+ autopilot.toggle(false,true);world.clearCharacters();world.resetHouse();effects.clear();if(zombieDoll){world.scene.remove(zombieDoll);zombieDoll=null;}
  for(const el of markers.values())el.remove();markers.clear();
  lastResult=null;scoreSaved=false;
  game.start({familySize,petCount});
@@ -291,7 +362,7 @@ function startGame(){
  $('#setup').classList.remove('show');$('#gameover').classList.remove('show');$('#paused').classList.remove('show');
  $('#hud').hidden=false;$('#roster').hidden=false;document.body.classList.add('playing');
  disposeStick();if(touchMode())disposeStick=installTouchStick($('.touch-stick'),world);
- updateHUD();updateRoster();$('#controls').textContent=touchMode()?'Left thumb to walk · drag to look · tap a family member to talk · tap fixtures to use them':'WASD to walk · mouse to look · E or click to talk or use things · P pause · Z summons a zombie';
+ updateHUD();updateRoster();$('#controls').textContent=touchMode()?'Left thumb to walk · drag to look · tap a family member to talk · tap fixtures to use them · 🤖 runs round for you':'WASD to walk · mouse to look · click to talk or use things · P pause · Z summons a zombie · X autopilot';
  if(!isMuted())sound.start().catch(()=>{});
  world.lock();world.petRoaming.greet(world.camera.position,world.yaw);
 }
@@ -342,6 +413,8 @@ $('#resumeBtn').onclick=resume;
 $('#quitBtn').onclick=()=>{game.running=false;stopCinema();recordPlayer.stop();showSetup();};
 $('#pauseBtn').onclick=()=>world.paused&&$('#paused').classList.contains('show')?resume():showPause();
 $('#touch-pause').onclick=()=>showPause();
+$('#autoBtn').onclick=()=>{if(game.running)autopilot.toggle();};
+$('#touch-auto').onclick=()=>{if(game.running)autopilot.toggle();};
 $('#touch-interact').onclick=()=>{if(world.lookTarget)interact();else toast('Walk up to someone or something first.');};
 $('#touch-zombie').onclick=()=>game.spawnZombie();
 const muteButtons=$$('[data-mute]');const paintMute=()=>muteButtons.forEach(b=>b.textContent=isMuted()?'🔇':'🔊');
@@ -353,6 +426,7 @@ document.addEventListener('keydown',e=>{
  else if(e.code==='KeyP'&&game.running){if($('#paused').classList.contains('show'))resume();else if(!commandFor&&!miniGame)showPause();}
  else if(e.code==='KeyZ'&&game.running&&!world.paused)game.spawnZombie();
  else if(e.code==='KeyM'){setMuted(!isMuted());applyMute();}
+ else if(e.code==='KeyX'&&game.running&&!e.repeat)autopilot.toggle();
 });
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&game.running&&!commandFor&&!miniGame)showPause();});
 

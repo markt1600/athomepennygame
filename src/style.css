@@ -17,6 +17,7 @@ button:focus-visible,input:focus-visible{outline:3px solid #ff8fab99;outline-off
 #money.flash-red{animation:flashred .4s}#money.flash-green{animation:flashgreen .5s}
 @keyframes flashred{0%,100%{background:var(--panel)}50%{background:#ffd2d2}}@keyframes flashgreen{0%,100%{background:var(--panel)}50%{background:#d5f5dc}}
 .hud-buttons{margin-left:auto;display:flex;gap:6px}
+.cornerBtn.on,.touch-actions button.on{background:linear-gradient(180deg,#8fe0b0,#5cc488)!important;color:#fff;box-shadow:0 3px 0 #3c8a5c}
 .cornerBtn{font-size:18px;background:linear-gradient(180deg,#fff,#f0e6d6);border:2px solid var(--ink);border-radius:12px;padding:4px 9px;box-shadow:0 3px 0 #cdb9a3}
 #roster{position:absolute;right:10px;top:78px;width:min(310px,calc(100vw - 20px));max-height:calc(var(--view-height,100dvh) - 140px);overflow:auto;background:#fffefbee;border:3px solid var(--ink);border-radius:16px;padding:8px 12px 6px;font-size:12.5px;box-shadow:0 8px 18px #0002}
 #roster h3{margin:0 0 4px;font-size:14px}#roster ol{list-style:none;margin:0;padding:0}
