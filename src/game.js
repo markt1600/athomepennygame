@@ -97,7 +97,7 @@ export class Game{
   const verb=c.need.verb;
   if(isBreak){c.wasWorking=false;c.workTimer=0;c.workSession=0;this.log(`${c.name} is taking a well-earned break! ☕`,'#2e7d32');}
   else this.log(`${c.name} was ${verb}! ${c.need.emoji}`+(c.wasWorking?' They will head back to the desk.':''),'#2e7d32');
-  const zone=this.zoneFor(c);c.busy=isBreak?'resting':zone?.busy||null;
+  const zone=this.zoneFor(c);c.busy=isBreak?'resting':zone?.busy||null;c.served=c.need.id;
   c.need=null;c.paid=0;c.state='happy';c.happyT=zone?.stay||this.rules.HAPPY_TIME;
   this.scheduleNext(c);
  }
@@ -244,9 +244,10 @@ export class Game{
   }
  }
  setPaused(p){if(!this.running)return;this.paused=p;}
- endGame(){
+ endGame(reason='lost'){
   this.running=false;this.paused=false;
-  this.result={score:Math.floor(this.score),time:this.timeLabel(),served:this.served,earned:this.earned,money:this.money};
+  const humans=this.humans,pets=this.chars.filter(c=>c.isPet);
+  this.result={reason,score:Math.floor(this.score),time:this.timeLabel(),served:this.served,earned:this.earned,money:this.money,alive:humans.filter(c=>!c.dead).length,family:humans.length,petsAlive:pets.filter(c=>!c.dead).length,pets:pets.length,oldest:Math.max(0,...humans.filter(c=>!c.dead).map(c=>c.age))};
   this.hooks.over?.(this.result);
  }
 }

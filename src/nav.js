@@ -73,11 +73,12 @@ export class NavGraph{
  }
  blocked(n){return this.dynamic.some(c=>intersectsFootprint(n.x,n.z,c));}
  // Pushed chairs also clip the links between clear nodes; sample the link at 5 cm.
- blockedLink(a,b){
+ blockedLink(a,b,ignore=[]){
   if(!this.dynamic.length)return false;
-  const near=this.dynamic.filter(c=>Math.hypot(c.x-a.x,c.z-a.z)<Math.max(c.w,c.d)+.6);if(!near.length)return false;
+  const near=this.dynamic.filter(c=>!ignore.includes(c)&&Math.hypot(c.x-a.x,c.z-a.z)<Math.max(c.w,c.d)+.6);if(!near.length)return false;
   const n=Math.ceil(Math.hypot(b.x-a.x,b.z-a.z)/.05);
-  for(let i=1;i<n;i++){const x=a.x+(b.x-a.x)*i/n,z=a.z+(b.z-a.z)*i/n;if(near.some(c=>intersectsFootprint(x,z,c)))return true;}
+  // Brushing the corner of a chair is fine; walking through it is not.
+  for(let i=1;i<n;i++){const x=a.x+(b.x-a.x)*i/n,z=a.z+(b.z-a.z)*i/n;if(near.some(c=>intersectsFootprint(x,z,c,.06)))return true;}
   return false;
  }
  // Nearest usable node, searched outward ring by ring from the sample point.
@@ -108,6 +109,8 @@ export class NavGraph{
   const start=this.nearest(from.x,from.z),goal=to.key?to:this.nearest(to.x,to.z);
   if(!start||!goal)return null;
   const avoided=n=>n!==goal&&n!==start&&avoid?.some(a=>Math.hypot(n.x-a.x,n.z-a.z)<a.r);
+  // Furniture the walker is already on or beside (the chair they sit on) must not seal them in.
+  const ignore=this.dynamic.filter(c=>intersectsFootprint(from.x,from.z,c,.2)||Math.hypot(c.x-start.x,c.z-start.z)<1);
   const h=n=>Math.hypot(n.x-goal.x,n.z-goal.z);
   const open=new Heap(),g=new Map([[start.key,0]]),parent=new Map(),closed=new Set();
   open.push({n:start,f:h(start)});
@@ -117,7 +120,7 @@ export class NavGraph{
    if(n===goal){found=n;break;}
    const gn=g.get(n.key);
    for(const {node,cost} of n.links){
-    if(closed.has(node.key)||this.blocked(node)||this.blockedLink(n,node)||(avoid&&avoided(node)))continue;
+    if(closed.has(node.key)||this.blocked(node)||this.blockedLink(n,node,ignore)||(avoid&&avoided(node)))continue;
     const ng=gn+cost;if(ng<(g.get(node.key)??Infinity)){g.set(node.key,ng);parent.set(node.key,n);open.push({n:node,f:ng+h(node)});}
    }
   }

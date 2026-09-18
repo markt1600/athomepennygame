@@ -3,8 +3,8 @@ import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js'
 import {planPoint,floorHeight} from './house/house-layout.js';
 
 // Places where a family member actually uses the furniture: chairs to sit on
-// at the desks and the dining table, sofa seats, the powder-room toilet, both
-// beds to lie in, the shower cubicle, the games corner and the exercise mat.
+// at the desks and the dining table, sofa seats, three toilets, both beds to
+// lie in, three shower cubicles, the lounge sofa for games and the exercise mat.
 // Every station is exclusive, so two people never end up on the same spot.
 // Chair stations follow their chairs when the player pushes them.
 const OFFICE_CHAIRS=[
@@ -48,16 +48,26 @@ export function buildStations(world){
  for(const item of items.filter(i=>i.group.name==='Dining chair'))stations.push(chairStation('table-'+stations.length,'table',item,.505));
  // The orange north sofa in the sunken living room: three seats facing the room.
  for(const [i,dx] of [-.9,0,.9].entries())stations.push(fixedStation('sofa-'+i,'sofa','sit',[406+dx*38.57,556],0,{top:.58,approachOffsets:[[0,.9],[.5,.9],[-.5,.9]]}));
- // Powder-room toilet, seat facing north.
- stations.push(fixedStation('toilet-0','toilet','sit',[360,462],Math.PI,{top:.44,approachOffsets:[[0,.7],[.4,.7],[-.4,.7],[0,1]]}));
+ // Toilets: the powder room (seat facing north), the main bathroom (facing west)
+ // and the second bathroom (facing east). People use whichever is nearest.
+ const IN_FRONT=[[0,.7],[.4,.7],[-.4,.7],[0,1]];
+ stations.push(fixedStation('toilet-0','toilet','sit',[360,462],Math.PI,{top:.44,approachOffsets:IN_FRONT}));
+ stations.push(fixedStation('toilet-1','toilet','sit',[935,254],-Math.PI/2,{top:.44,approachOffsets:IN_FRONT}));
+ stations.push(fixedStation('toilet-2','toilet','sit',[998,477],Math.PI/2,{top:.44,approachOffsets:IN_FRONT}));
  // Beds: two places each, heads on the pillows at the west end.
  for(const [i,dz] of [-.5,.5].entries())stations.push(fixedStation('bed-'+i,'bed','lie',[579+6,331+dz*38.57],-Math.PI/2,{top:.555,approachPoints:[[579+55,331+dz*38.57],[579,331+dz*60],[579+30,331+dz*60]]}));
  // The second bed is hemmed in on its east side, so both places are reached from its foot.
  for(const [i,pz] of [332,367].entries())stations.push(fixedStation('kidbed-'+i,'kidbed','lie',[962,pz],-Math.PI/2,{top:.59,approachPoints:[[962,389],[940,389],[985,389],[1009,pz]]}));
- // The glass shower cubicle in the main bathroom, and the games corner.
+ // Showers: the glass cubicles in the main bathroom, the powder room and the second bathroom.
  stations.push(fixedStation('shower-0','tub','shower',[935,216],Math.PI/2,{approachPoints:[[927,244],[938,244],[916,244],[905,244]]}));
- stations.push(fixedStation('play-0','tv','play',[436+40,465],-Math.PI/2,{approachOffsets:[[0,-.6],[.5,-.3],[-.5,-.3]]}));
- stations.push(fixedStation('play-1','tv','play',[504.75,435+44],Math.PI,{approachOffsets:[[0,-.6],[.5,-.3],[-.5,-.3]]}));
+ stations.push(fixedStation('shower-1','tub','shower',[333,455],0,{approachPoints:[[333,426],[333,419],[341,419],[341,426]]}));
+ stations.push(fixedStation('shower-2','tub','shower',[1005,548],-Math.PI/2,{approachPoints:[[1005,515],[1012,515],[998,515],[1005,508]]}));
+ // Playing: the window-lounge sofa's south seat and the lounge chair, both facing
+ // the movie screen. The coffee table fills the space in front, so both are
+ // reached from the gap at the sofa's south end.
+ const LOUNGE_GAP=[[372,318],[380,318],[387,318],[395,318]];
+ stations.push(fixedStation('play-0','tv','sit',[341,271+.58*38.57],Math.PI/2,{top:.57,approachPoints:LOUNGE_GAP}));
+ stations.push(fixedStation('play-1','tv','sit',[353,345],Math.PI/2,{top:.55,approachPoints:LOUNGE_GAP}));
  // Two mats in the meditation alcove.
  for(const [i,dz] of [-.45,.45].entries())stations.push(fixedStation('mat-'+i,'mat','exercise',[563,228+dz*38.57],0,{approachOffsets:[[0,-.6],[.6,0],[-.6,0],[0,.6]]}));
  world.stations=stations;return stations;

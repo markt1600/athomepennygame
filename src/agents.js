@@ -43,19 +43,22 @@ export class Agents{
  release(c){if(c.spot){this.reserved.delete(c.spot.key);c.spot=null;}if(c.stationTarget&&c.stationTarget!==c.station){this.occupied.delete(c.stationTarget.id);c.stationTarget=null;}}
  // A free station at the zone (a chair, a bed place, the shower…) with a
  // standing spot beside it this person can walk to. Falls back to open floor.
- stationFor(c,zone){
-  for(const station of this.stations.filter(s=>s.zone===zone.id)){
+ // The nearest free station of the zone: whichever bathroom is closest, the
+ // nearest empty chair at the table.
+ stationFor(c,zone,origin=c){
+  const near=s=>{const p=stationPose(s);return Math.hypot(p.x-c.x,p.z-c.z);};
+  for(const station of this.stations.filter(s=>s.zone===zone.id).sort((a,b)=>near(a)-near(b))){
    const owner=this.occupied.get(station.id);if(owner&&owner!==c)continue;
-   const n=approachNode(this.nav,station,c);if(n)return {station,node:n};
+   const n=approachNode(this.nav,station,origin);if(n)return {station,node:n};
   }
   return null;
  }
  // Choose a standing spot beside the zone's furniture that nobody else holds.
- spot(c,zone){
+ spot(c,zone,origin=c){
   const held=[...this.reserved].filter(([,owner])=>owner!==c).map(([k])=>this.nav.nodes.get(k)).filter(Boolean);
   const taken=n=>held.some(h=>dist(h,n)<.5);
   const nodes=this.nav.nearestNodes(zone.position[0],zone.position[1],{count:zone.seats+4,maxDist:zone.radius,exclude:taken});
-  return nodes.find(n=>this.nav.route(c,n,{smooth:false}))||null;
+  return nodes.find(n=>this.nav.route(origin,n,{smooth:false}))||null;
  }
  // Using a station moves the character onto it; leaving puts them back on the
  // floor beside it so the next path starts on open floor.
@@ -67,7 +70,10 @@ export class Agents{
  }
  go(c,zone,purpose){
   this.release(c);if(c.station&&!this.roamed(c))this.vacate(c);
-  const use=this.roamed(c)?null:this.stationFor(c,zone),n=use?use.node:this.spot(c,zone);if(!n)return false;
+  // Someone getting up from a chair squeezes back to its standing spot first; the
+  // route starts there, since the chair itself sits in a pocket between its neighbours.
+  const origin=c.squeeze?{x:c.squeeze.x,z:c.squeeze.z,y:c.y}:c;
+  const use=this.roamed(c)?null:this.stationFor(c,zone,origin),n=use?use.node:this.spot(c,zone,origin);if(!n)return false;
   if(use){this.occupied.set(use.station.id,c);c.stationTarget=use.station;}
   if(this.roamed(c)){
    const hurry=c.kind==='tortoise'?2.6:1.5;
@@ -79,7 +85,7 @@ export class Agents{
    // the command stays set and roaming retries it, so give it a few seconds.
    this.reserved.set(n.key,c);c.spot=n;c.faceZone=zone;c.errand=true;c.errandWait=0;return true;
   }
-  const path=this.nav.route(c,n);if(!path)return false;
+  const path=this.nav.route(origin,n);if(!path)return false;
   this.reserved.set(n.key,c);c.spot=n;c.path=path;c.hurry=purpose!=='resume'?1.45:1.2;c.moving=true;c.blocked=0;c.faceZone=zone;return true;
  }
  stop(c){if(this.roamed(c)){this.petRoaming.release(c.id,3);this.petRoaming.interact(c.id);c.errand=false;return;}c.path=[];c.moving=false;c.idle=.5+this.random();}

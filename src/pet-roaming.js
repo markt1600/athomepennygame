@@ -43,9 +43,9 @@ export class PetRoaming{
  }
  route(p){
   const others=[...this.pets.values()].filter(o=>o!==p);
-  // A pet on an errand squeezes past a sleeping housemate in a narrow gap; the
-  // wanderers keep At Home's wider berth.
-  const berth=p.command?.3:.53,edgeBerth=p.command?.26:.46;
+  // A pet on an errand brushes past a housemate asleep in a narrow gap (the
+  // balcony is reached through one such gap); the wanderers keep At Home's berth.
+  const berth=p.command?.15:.53,edgeBerth=p.command?.12:.46;
   const clear=n=>!this.dynamicObstacles.some(c=>intersectsFootprint(n.x,n.z,c))&&others.every(o=>Math.abs(n.y-o.y)>.4||Math.hypot(n.x-o.x,n.z-o.z)>=Math.min(berth,Math.hypot(p.x-o.x,p.z-o.z)-.005))&&(!this.player||Math.abs(n.y-(this.player.y-1.67))>.5||Math.hypot(n.x-this.player.x,n.z-this.player.z)>=Math.min(p.command?.50:.78,Math.hypot(p.x-this.player.x,p.z-this.player.z)-.005));
   // Clear endpoints alone can route an edge through a nearby player. Check the
   // full segment so a pet can depart after care without oscillating in place.

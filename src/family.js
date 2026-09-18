@@ -18,6 +18,7 @@ const geo={
  cap:new THREE.SphereGeometry(.215,22,16,0,Math.PI*2,0,1.6),longCap:new THREE.SphereGeometry(.215,22,16,0,Math.PI*2,0,1.95),
  fringe:new THREE.SphereGeometry(.212,22,8,Math.PI/2-1.05,2.1,.42,.62),bun:new THREE.SphereGeometry(.085,14,10),tuft:new THREE.CapsuleGeometry(.04,.09,4,8),tail:new THREE.CapsuleGeometry(.045,.2,4,10),tie:new THREE.TorusGeometry(.045,.012,6,12),
  shadow:new THREE.CircleGeometry(.3,24),
+ padBody:new THREE.BoxGeometry(.15,.028,.06),padGrip:new THREE.CapsuleGeometry(.018,.05,3,8),padStick:new THREE.CylinderGeometry(.008,.006,.014,8),padButton:new THREE.CylinderGeometry(.007,.007,.008,8),
 };
 const shadowMat=new THREE.MeshBasicMaterial({color:0x2a3128,transparent:true,opacity:.18,depthWrite:false});
 const steamMat=new THREE.MeshStandardMaterial({color:0xe6f2f7,roughness:.55,transparent:true,opacity:.94,depthWrite:false});
@@ -76,6 +77,11 @@ export function createDoll(c,{zombie=false}={}){
   const eye=merged([{geometry:geo.sclera,color:'#ffffff',position:[0,0,0],scale:[1,1.15,.55]},{geometry:geo.pupil,color:zombie?'#c62828':'#2a201c',position:[0,0,.02],scale:[1,1.1,.7]},{geometry:geo.glint,color:'#ffffff',position:[-.008*Math.sign(x)-.004,.009,.034]}]);
   const p=pivot(x,.185,.172,eye,headPivot);if(zombie&&x>0)p.scale.setScalar(.75);return p;
  });
+ // A game controller, held in both hands while playing on the lounge sofa.
+ const pad=merged([{geometry:geo.padBody,color:'#2b2b30',position:[0,0,0]},{geometry:geo.padGrip,color:'#2b2b30',position:[-.07,-.02,.02],rotation:[.6,0,.3]},{geometry:geo.padGrip,color:'#2b2b30',position:[.07,-.02,.02],rotation:[.6,0,-.3]},
+  {geometry:geo.padStick,color:'#555560',position:[-.045,.018,-.01]},{geometry:geo.padStick,color:'#555560',position:[.02,.018,.012]},
+  {geometry:geo.padButton,color:'#e94b4b',position:[.05,.018,-.02]},{geometry:geo.padButton,color:'#4bc0e9',position:[.065,.018,-.005]},{geometry:geo.padButton,color:'#6fdc6f',position:[.05,.018,.01]},{geometry:geo.padButton,color:'#f2d24b',position:[.035,.018,-.005]}]);
+ pad.position.set(0,.78,.33);pad.rotation.x=.55;pad.visible=false;g.add(pad);
  const bubble=createBubble();bubble.position.y=1.85;g.add(bubble);
  // A frosted steam screen hides the body in the shower; the head stays visible.
  const steam=new THREE.Mesh(new THREE.CylinderGeometry(.44,.4,1.12,20),steamMat);steam.position.y=.66;steam.visible=false;g.add(steam);
@@ -95,6 +101,7 @@ export function createDoll(c,{zombie=false}={}){
   else if(pose==='shower'){armL=-1.2+Math.sin(t*10)*.45;armR=-1.2-Math.sin(t*10)*.45;armZ=.55;bob=Math.abs(Math.sin(t*5))*.015;elbowL=elbowR=-1.1;}
   else if(pose==='exercise'){armL=armR=-.2;armZ=1.6+Math.sin(t*7)*1.35;bob=Math.max(0,Math.sin(t*7))*.14;elbowL=elbowR=-.1;}
   else if(pose==='play'){armL=armR=-1.0+Math.sin(t*14)*.08;armZ=.3;bob=Math.abs(Math.sin(t*3))*.02;elbowL=elbowR=-1.2+Math.sin(t*14)*.1;}
+  else if(pose==='sit'&&state==='happy'&&options.busy==='playing'){const mash=Math.sin(t*16);armL=-.75+mash*.03;armR=-.75-mash*.03;armZ=.22;bob=Math.abs(Math.sin(t*2))*.01;elbowL=-1.35+mash*.05;elbowR=-1.35-mash*.05;tilt=Math.sin(t*3)*.02;}   // thumbs on the controller
   else if(pose==='sit'&&state==='happy'&&options.busy==='eating'){const bite=Math.sin(t*5);armL=-.8+bite*.1;armR=-.8-bite*.1;armZ=.25;bob=Math.abs(bite)*.02;elbowL=-1.5+bite*.4;elbowR=-1.5-bite*.4;}   // tucking in at the table
   else if(pose==='sit'&&state!=='request'&&state!=='work'){armL=armR=-.5;armZ=.2;bob=0;elbowL=elbowR=-.9;}
   else if(state==='happy'){bob=Math.abs(Math.sin(t*10))*.14;armZ=1.2+Math.sin(t*10)*.5;armL=armR=-.3;elbowL=elbowR=-.5;}
@@ -103,6 +110,7 @@ export function createDoll(c,{zombie=false}={}){
   else if(zombie){armL=armR=-1.45+Math.sin(t*3)*.1;armZ=.15;headY=Math.sin(t*2.2)*.08;elbowL=elbowR=-.2;}
   else if(moving){elbowL=-.45-swing*.3;elbowR=-.45+swing*.3;}
   arms[0].rotation.set(armL,0,armZ);arms[1].rotation.set(armR,0,-armZ);elbows[0].rotation.x=elbowL;elbows[1].rotation.x=elbowR;
+  pad.visible=pose==='sit'&&state==='happy'&&options.busy==='playing';if(pad.visible){pad.rotation.z=Math.sin(t*16)*.04;pad.position.y=.78+bob;}
   g.rotation.z=tilt;headPivot.rotation.set(headY,0,0);headPivot.position.y=1.14+bob;
   const eyeScale=blink<0||pose==='lie'?.12:1;eyes[0].scale.y=eyeScale;eyes[1].scale.y=eyeScale*(zombie?.75:1);
   bubble.update(dt,options);

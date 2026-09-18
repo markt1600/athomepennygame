@@ -6,21 +6,22 @@ import {Game} from '../src/game.js';
 import {Agents,approachNode} from '../src/agents.js';
 import {stationPose} from '../src/stations.js';
 import {ZONES,NEEDS} from '../src/zones.js';
-import {HOUSE_VIEWS} from '../src/house/house-layout.js';
+import {HOUSE_VIEWS,planPoint} from '../src/house/house-layout.js';
+const planPointXZ=plan=>planPoint(...plan);
 import {inWalkableArea} from '../src/house/navigation.js';
 
 const world=createHouseModel({optimize:false});
 let seed=5;const random=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
 const nav=new NavGraph(world.colliders,{random});
 const hall={x:HOUSE_VIEWS.hall[0],z:HOUSE_VIEWS.hall[2]};
-const ROOM={desk:'study',table:'dining',sofa:'living',toilet:'powder',bed:'bedroom',kidbed:'guest',tub:'bath',tv:'passage',mat:'meditation'};
+const ROOM={desk:['study'],table:['dining'],sofa:['living'],toilet:['powder','bath','guest_bath'],bed:['bedroom'],kidbed:['guest'],tub:['bath','powder','guest_bath'],tv:['theatre'],mat:['meditation']};
 
 test('every station sits in the right room and has a standing spot beside it that the hall can reach',()=>{
  const count=zone=>world.stations.filter(s=>s.zone===zone).length;
- assert.equal(count('desk'),3);assert.equal(count('table'),6);assert.equal(count('sofa'),3);assert.equal(count('bed'),2);assert.equal(count('kidbed'),2);assert.equal(count('tub'),1);assert.equal(count('tv'),2);assert.equal(count('mat'),2);assert.equal(count('toilet'),1);
+ assert.equal(count('desk'),3);assert.equal(count('table'),6);assert.equal(count('sofa'),3);assert.equal(count('bed'),2);assert.equal(count('kidbed'),2);assert.equal(count('tub'),3);assert.equal(count('tv'),2);assert.equal(count('mat'),2);assert.equal(count('toilet'),3);
  for(const station of world.stations){
   const p=stationPose(station);
-  assert.equal(roomAt(p.x,p.z)?.id,ROOM[station.zone],`${station.id} at ${p.x.toFixed(2)},${p.z.toFixed(2)}`);
+  assert.ok(ROOM[station.zone].includes(roomAt(p.x,p.z)?.id),`${station.id} at ${p.x.toFixed(2)},${p.z.toFixed(2)} is in ${roomAt(p.x,p.z)?.id}`);
   const spot=approachNode(nav,station,hall);
   assert.ok(spot,`${station.id} has a standing spot the hall can reach`);
   assert.ok(Math.hypot(spot.x-p.x,spot.z-p.z)<1.65,`${station.id} spot is near it`);
@@ -66,7 +67,19 @@ test('people use the furniture: separate chairs, a bed to lie in, the shower, an
  // A shower in the main bathroom cubicle.
  game.startRequest(rosie,NEEDS[6]);assert.ok(game.act(rosie,'serve').ok);
  assert.ok(until(()=>rosie.station,120),'reached the shower');
- assert.equal(rosie.station?.kind,'shower');assert.equal(roomAt(rosie.x,rosie.z).id,'bath');assert.equal(rosie.busy,'showering');
+ assert.equal(rosie.station?.kind,'shower');assert.ok(['bath','powder','guest_bath'].includes(roomAt(rosie.x,rosie.z).id),'in a bathroom');assert.equal(rosie.busy,'showering');
  assert.ok(until(()=>!rosie.station,ZONES.tub.stay+6),'left the shower');
 
+});
+
+test('the bathroom need goes to whichever toilet is nearest, and so does a shower',()=>{
+ const game=new Game({random,hooks:{}}),agents=new Agents(nav,game,{random,stations:world.stations});
+ Object.assign(game.hooks,{place:c=>agents.place(c),go:(c,zone,purpose)=>agents.go(c,zone,purpose),stop:c=>agents.stop(c)});
+ game.start({familySize:3,petCount:0});for(const c of game.chars)c.nextReq=1e9;
+ const [penny,max,lily]=game.chars;
+ const put=(c,plan)=>{const [x,z]=planPointXZ(plan);const n=nav.nearest(x,z,{maxDist:2});c.x=n.x;c.z=n.z;c.y=n.y;};
+ put(penny,[905,320]);put(max,[1010,600]);put(lily,[450,500]);   // main bedroom, office, hallway
+ for(const [c,zone,expect] of [[penny,'toilet','toilet-1'],[max,'toilet','toilet-2'],[lily,'toilet','toilet-0'],[penny,'tub','shower-0'],[max,'tub','shower-2'],[lily,'tub','shower-1']]){
+  const use=agents.stationFor(c,ZONES[zone]);assert.equal(use?.station.id,expect,`${c.name} from ${zone}`);
+ }
 });
