@@ -2,7 +2,7 @@ import './style.css';
 import * as THREE from 'three';
 import {World} from './world.js';
 import {Game,RULES,fmt$} from './game.js';
-import {Agents} from './agents.js';
+import {Agents,approachNode} from './agents.js';
 import {ZONES,zoneForNeed} from './zones.js';
 import {roomAt} from './nav.js';
 import {stationPose} from './stations.js';
@@ -10,6 +10,8 @@ import {createDoll,createBubble,Effects} from './family.js';
 import {installTouchStick} from './house/touch-controls.js';
 import {hasTouchInput,installGameViewport,viewportBounds} from './house/game-viewport.js';
 import {pickTouchInteraction} from './house/touch-targets.js';
+import {moveAlongFloor} from './house/navigation.js';
+
 import {HomeSound} from './house/home-sound.js';
 import {RecordPlayer} from './house/record-player.js';
 import {clawControlsHTML,mountClawControls} from './house/claw-game.js';
@@ -207,9 +209,9 @@ function toast(msg){const el=$('#toast');el.textContent=msg;el.classList.add('sh
 // something (most urgent first), faces them and gives the order, and puts
 // idle adults to work when nobody needs anything. Any walk or stick input
 // hands control back.
-const autopilot={on:false,target:null,action:null,path:[],spots:[],spotIndex:0,wait:0,faceT:0,retry:new Map(),
+const autopilot={on:false,target:null,action:null,path:[],spots:[],spotIndex:0,spotTries:0,wait:0,faceT:0,retry:new Map(),drive:{x:0,z:0},progress:null,stuckT:0,reroutes:0,
  toggle(force,quiet=false){
-  this.on=force??!this.on;this.target=null;this.path=[];this.wait=0;
+  this.on=force??!this.on;this.target=null;this.path=[];this.wait=0;this.drive={x:0,z:0};if(world.touchMove.x||world.touchMove.z)world.touchMove={x:0,z:0};
   $('#autoBtn').classList.toggle('on',this.on);$('#touch-auto').classList.toggle('on',this.on);
   if(!quiet)toast(this.on?'🤖 Autopilot on: I will run round and sort everyone out. Walk or use the stick to take over.':'🤖 Autopilot off, you have the controls.');
  },
@@ -221,55 +223,79 @@ const autopilot={on:false,target:null,action:null,path:[],spots:[],spotIndex:0,w
   if(workers<2){const idle=game.chars.filter(c=>!c.dead&&!c.isPet&&c.state==='wander'&&c.age>=12&&c.age<=60&&fresh(c)).sort((a,b)=>near(a)-near(b));if(idle.length)return {c:idle[0],action:'work'};}
   return null;
  },
- route(c){
+ // A node the player can actually step to from where they stand, so a route
+ // never starts on the far side of a wall or a cabinet.
+ startNode(){
   const feet=world.feetPosition;
-  this.spots=world.nav.nearestNodes(c.x,c.z,{count:12,maxDist:1.4,exclude:n=>Math.hypot(n.x-c.x,n.z-c.z)<.7}).sort((a,b)=>Math.hypot(a.x-feet.x,a.z-feet.z)-Math.hypot(b.x-feet.x,b.z-feet.z));
-  this.spotIndex=0;return this.routeToSpot();
+  for(const n of world.nav.nearestNodes(feet.x,feet.z,{count:10,maxDist:1.4})){const m=moveAlongFloor(feet.x,feet.z,n.x-feet.x,n.z-feet.z,world.colliders);if(Math.hypot(m.x-n.x,m.z-n.z)<.03)return n;}
+  return world.nav.nearest(feet.x,feet.z);
  },
- routeToSpot(){
-  const feet=world.feetPosition;
-  while(this.spotIndex<this.spots.length){
-   const path=world.nav.route({x:feet.x,z:feet.z},this.spots[this.spotIndex++],{smooth:true});
-   if(path){this.path=path;this.faceT=0;return true;}
+ route(c){
+  // Standing spots: the chair's own approach spot for someone seated, then open
+  // floor around them, in their room first so a wall never sits between us.
+  const feet=world.feetPosition,room=roomAt(c.x,c.z)?.id,near=n=>Math.hypot(n.x-feet.x,n.z-feet.z);
+  const spots=world.nav.nearestNodes(c.x,c.z,{count:12,maxDist:1.4,exclude:n=>Math.hypot(n.x-c.x,n.z-c.z)<.7}).sort((a,b)=>((roomAt(b.x,b.z)?.id===room)-(roomAt(a.x,a.z)?.id===room))||near(a)-near(b));
+  const seat=c.station&&approachNode(world.nav,c.station,feet);
+  this.spots=seat?[seat,...spots.filter(n=>n!==seat)]:spots;
+  this.spotIndex=0;this.spotTries=0;return this.routeToSpot();
+ },
+ routeToSpot(smooth=true){
+  const start=this.startNode();if(!start){this.path=[];return false;}
+  while(this.spotIndex<this.spots.length&&this.spotTries<4){
+   const path=world.nav.route(start,this.spots[this.spotIndex++],{smooth});this.spotTries++;
+   if(path){this.path=path;this.faceT=0;this.progress={x:world.feetPosition.x,z:world.feetPosition.z};this.stuckT=0;return true;}
   }
   this.path=[];return false;
  },
+ giveUp(c,seconds){this.retry.set(c.id,game.elapsed+seconds);this.target=null;this.path=[];this.drive={x:0,z:0};world.touchMove={x:0,z:0};this.wait=.3;},
  turn(dt,desiredYaw,desiredPitch=0,rate=7){
   let d=desiredYaw-world.yaw;d=Math.atan2(Math.sin(d),Math.cos(d));const k=Math.min(1,dt*rate);
   world.yaw+=d*k;world.pitch+=(desiredPitch-world.pitch)*k;return Math.abs(d)<.12;
  },
  update(dt){
-  if(!this.on||commandFor||miniGame||world.handInteraction.active)return;
-  if(Object.values(world.keys).some(Boolean)||world.touchMove.x||world.touchMove.z){this.toggle(false);return;}
+  if(!this.on)return;
+  // Any key or a stick position we did not set ourselves hands control back.
+  const tm=world.touchMove;
+  if(Object.values(world.keys).some(Boolean)||Math.abs(tm.x-this.drive.x)>1e-6||Math.abs(tm.z-this.drive.z)>1e-6){this.toggle(false);return;}
+  if(commandFor||miniGame||world.handInteraction.active){this.drive={x:0,z:0};world.touchMove={x:0,z:0};return;}
   if(this.wait>0){this.wait-=dt;return;}
   const goal=this.pick();
-  if(!goal){this.target=null;this.path=[];return;}
+  if(!goal){this.target=null;this.path=[];this.drive={x:0,z:0};world.touchMove={x:0,z:0};return;}
   const c=goal.c;
-  if(this.target!==c.id){this.target=c.id;this.action=goal.action;this.anchor={x:c.x,z:c.z};if(!this.route(c)){this.retry.set(c.id,game.elapsed+4);this.target=null;this.wait=.5;return;}}
-  if(Math.hypot(c.x-this.anchor.x,c.z-this.anchor.z)>.9){this.anchor={x:c.x,z:c.z};this.route(c);}   // they moved on
+  if(this.target!==c.id){this.target=c.id;this.action=goal.action;this.anchor={x:c.x,z:c.z};this.reroutes=0;if(!this.route(c)){this.giveUp(c,4);return;}}
+  if(Math.hypot(c.x-this.anchor.x,c.z-this.anchor.z)>.9){this.anchor={x:c.x,z:c.z};if(!this.route(c)){this.giveUp(c,4);return;}}   // they moved on
   const feet=world.feetPosition,cam=world.camera.position;
   const dist=Math.hypot(c.x-feet.x,c.z-feet.z),level=Math.abs(c.y-feet.y)<.7;
-  if(!this.path.length||dist<1.15&&level){
-   // Close enough: face them and give the order once the aim settles on them.
-   const headY=(world.characters.get(c.id)?.group.position.y??c.y)+(c.isPet?c.height*.6:1.25*c.size);
+  const doll=world.characters.get(c.id)?.group,head=doll&&world.aimPoints(c,doll)[0],visible=head&&head.distanceTo(cam)<3&&!world.occluded(head,head.distanceTo(cam));
+  if(!this.path.length||dist<1.15&&level&&visible){
+   // Close enough: stop, face them and give the order once we can see their head
+   // (the aim itself may have settled on a neighbour standing shoulder to shoulder).
+   this.drive={x:0,z:0};world.touchMove={x:0,z:0};
+   const headY=(doll?.position.y??c.y)+(c.isPet?c.height*.6:1.25*c.size);
    const facing=this.turn(dt,Math.atan2(-(c.x-cam.x),-(c.z-cam.z)),Math.atan2(headY-cam.y,Math.hypot(c.x-cam.x,c.z-cam.z)),9);
    this.faceT+=dt;
-   if(facing&&world.lookTarget===c.id){
+   if(facing&&(world.lookTarget===c.id||visible)){
     const a=game.actionsFor(c).find(a=>a.id===this.action);
     if(a&&!a.disabled){const r=game.act(c,a.id);if(r.ok)logMsg('🤖 '+a.label,'#1565c0');else toast(r.message);}
-    this.retry.set(c.id,game.elapsed+(a&&!a.disabled?2:8));this.target=null;this.wait=.35;return;
+    this.giveUp(c,a&&!a.disabled?2:8);return;
    }
-   if(this.faceT>1.6){   // still not aimed at them: try the next standing spot, or give up for a while
-    if(!this.routeToSpot()){this.retry.set(c.id,game.elapsed+6);this.target=null;}
+   if(this.faceT>1.4){   // still not aimed at them: try another standing spot, then leave them for a while
+    if(dist>3.4||!this.routeToSpot())this.giveUp(c,6);
    }
    return;
   }
-  // Follow the path: the player runs a little faster than the family walks.
-  const next=this.path[0],dx=next.x-feet.x,dz=next.z-feet.z,d=Math.hypot(dx,dz),step=Math.min(d,2.6*dt);
-  if(d<.05){this.path.shift();return;}
-  const x=feet.x+dx/d*step,z=feet.z+dz/d*step,y=next.y;
-  world.feet={x,y,z,vy:0,grounded:true};cam.x=x;cam.z=z;world.eyeHeight=1.67;world.walking=true;
-  this.turn(dt,Math.atan2(-dx,-dz),-.06);
+  // Follow the path through the normal walking code (collisions, stairs, furniture pushing) by driving the stick.
+  const next=this.path[0],dx=next.x-feet.x,dz=next.z-feet.z,d=Math.hypot(dx,dz);
+  if(d<.2){this.path.shift();if(!this.path.length){this.drive={x:0,z:0};world.touchMove={x:0,z:0};}return;}
+  const yaw=world.yaw,ux=dx/d,uz=dz/d,lx=ux*Math.cos(yaw)-uz*Math.sin(yaw),lz=ux*Math.sin(yaw)+uz*Math.cos(yaw);
+  this.drive={x:lx,z:lz};world.touchMove=this.drive;world.eyeHeight=1.67;
+  this.turn(dt,Math.atan2(-ux,-uz),-.06);
+  // No progress for a while: re-plan from where we really are, and after a few tries leave this one.
+  if(Math.hypot(feet.x-this.progress.x,feet.z-this.progress.z)>.25){this.progress={x:feet.x,z:feet.z};this.stuckT=0;}
+  else if((this.stuckT+=dt)>1.2){   // jammed on a corner: retrace the grid path node by node, then try another spot, then leave them
+   this.stuckT=0;if(++this.reroutes>3){this.giveUp(c,6);return;}
+   this.spotIndex=Math.max(0,this.spotIndex-(this.reroutes<3?1:0));this.spotTries=0;if(!this.routeToSpot(false))this.giveUp(c,6);
+  }
  },
 };
 
@@ -432,7 +458,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden&&game.runni
 
 stat('best',bestScore);
 refreshBoards();
-window.pennyGame={game,world,agents,startGame,openCommand,ZONES,stats,recordPlayer,startCinema,stopCinema,THREE};   // handy for tinkering and smoke tests
+window.pennyGame={game,world,agents,autopilot,startGame,openCommand,ZONES,stats,recordPlayer,startCinema,stopCinema,THREE};   // handy for tinkering and smoke tests
 if(document.fonts?.load)['700 16px "Baloo 2"','800 20px "Baloo 2"'].forEach(f=>document.fonts.load(f).catch(()=>{}));
 document.documentElement.removeAttribute('data-starting');
 $('#setup').classList.add('show');

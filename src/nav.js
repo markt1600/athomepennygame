@@ -53,9 +53,10 @@ export class NavGraph{
    if(!this.floor.walkable(x,z))continue;
    this.nodes.set(key(i,j),{key:key(i,j),i,j,x,z,y:floorHeight(x,z),room:roomAt(x,z)?.id||null,links:[]});
   }
-  // Adjacent samples are 20 cm apart: the midpoint must be clear and the
-  // floor may only change by an ordinary riser, as when the player walks.
-  const reaches=(a,b)=>b.y-a.y<=.22&&a.y-b.y<=.32&&this.floor.walkable((a.x+b.x)/2,(a.z+b.z)/2);
+  // Adjacent samples are 20 cm apart: every 5 cm between them must be clear
+  // (a diagonal cabinet's padded corner can clip a link between two clear
+  // nodes) and the floor may only change by an ordinary riser.
+  const reaches=(a,b)=>{if(b.y-a.y>.22||a.y-b.y>.32)return false;const n=Math.ceil(Math.hypot(b.x-a.x,b.z-a.z)/.05);for(let i=1;i<n;i++)if(!this.floor.walkable(a.x+(b.x-a.x)*i/n,a.z+(b.z-a.z)*i/n))return false;return true;};
   for(const n of this.nodes.values()){
    for(const [di,dj] of [[1,0],[-1,0],[0,1],[0,-1]]){const m=this.nodes.get(key(n.i+di,n.j+dj));if(m&&reaches(n,m))n.links.push({node:m,cost:step});}
   }
@@ -71,6 +72,14 @@ export class NavGraph{
   }
  }
  blocked(n){return this.dynamic.some(c=>intersectsFootprint(n.x,n.z,c));}
+ // Pushed chairs also clip the links between clear nodes; sample the link at 5 cm.
+ blockedLink(a,b){
+  if(!this.dynamic.length)return false;
+  const near=this.dynamic.filter(c=>Math.hypot(c.x-a.x,c.z-a.z)<Math.max(c.w,c.d)+.6);if(!near.length)return false;
+  const n=Math.ceil(Math.hypot(b.x-a.x,b.z-a.z)/.05);
+  for(let i=1;i<n;i++){const x=a.x+(b.x-a.x)*i/n,z=a.z+(b.z-a.z)*i/n;if(near.some(c=>intersectsFootprint(x,z,c)))return true;}
+  return false;
+ }
  // Nearest usable node, searched outward ring by ring from the sample point.
  nearest(x,z,{maxDist=1.6,exclude=null,levelOf=null}={}){
   const step=this.step,ci=Math.round(x/step),cj=Math.round(z/step),rings=Math.ceil(maxDist/step);
@@ -108,7 +117,7 @@ export class NavGraph{
    if(n===goal){found=n;break;}
    const gn=g.get(n.key);
    for(const {node,cost} of n.links){
-    if(closed.has(node.key)||this.blocked(node)||(avoid&&avoided(node)))continue;
+    if(closed.has(node.key)||this.blocked(node)||this.blockedLink(n,node)||(avoid&&avoided(node)))continue;
     const ng=gn+cost;if(ng<(g.get(node.key)??Infinity)){g.set(node.key,ng);parent.set(node.key,n);open.push({n:node,f:ng+h(node)});}
    }
   }
@@ -117,8 +126,11 @@ export class NavGraph{
   if(Math.hypot(start.x-from.x,start.z-from.z)>.002)path.unshift({x:from.x,z:from.z,y:floorHeight(from.x,from.z)});
   return smooth?this.smooth(path):path.map(n=>({x:n.x,z:n.z,y:n.y}));
  }
+ // Sampled every 4 cm: the padded corner of a diagonal cabinet can clip a
+ // straight segment for less than 10 cm, and a walker following that segment
+ // would jam on it.
  clear(a,b){
-  const count=Math.max(1,Math.ceil(Math.hypot(b.x-a.x,b.z-a.z)/.1));let x=a.x,z=a.z,h=floorHeight(x,z);
+  const count=Math.max(1,Math.ceil(Math.hypot(b.x-a.x,b.z-a.z)/.04));let x=a.x,z=a.z,h=floorHeight(x,z);
   for(let i=1;i<=count;i++){
    const nx=a.x+(b.x-a.x)*i/count,nz=a.z+(b.z-a.z)*i/count;
    if(!this.all.walkable(nx,nz))return false;
