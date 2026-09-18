@@ -43,7 +43,7 @@ const roomName=(x,z)=>ROOM_NAMES[roomAt(x,z)?.id]||'somewhere in the house';
 const clockLabel=hours=>{const h=((hours%24)+24)%24,m=Math.floor(h*60);return `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;};
 const MOVIE='/art/telescope/galaxy.mp4';
 
-let familySize=4,petCount=1,bestScore=Number(localStorage.getItem(LS_BEST)||0),scoreSaved=false,lastResult=null;
+let familySize=piMode?6:4,petCount=piMode?3:1,bestScore=Number(localStorage.getItem(LS_BEST)||0),scoreSaved=false,lastResult=null;
 let zombieDoll=null,disposeStick=()=>{},disposeMiniGame=()=>{},miniGame=null,movie=null,hudTimer=0,rosterTimer=0,logTimer=null,commandFor=null;
 const markers=new Map();
 
